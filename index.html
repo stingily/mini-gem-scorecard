@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mini Gem — Scorecard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red:    #bf2d1e;
+    --ink:    #111111;
+    --ink-2:  #666660;
+    --ink-3:  #aaa9a4;
+    --bg:     #ffffff;
+    --bg-2:   #f7f6f4;
+    --bg-3:   #f0eee9;
+    --border: #e8e6e0;
+    --green:  #1a7a48;
+    --amber:  #c06010;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); overflow-x: hidden; }
+  .screen { display: none; min-height: 100dvh; flex-direction: column; }
+  .screen.active { display: flex; animation: si 0.18s ease; }
+  @keyframes si { from { opacity: 0; } to { opacity: 1; } }
+
+  /* SETUP */
+  #setup { background: var(--bg); }
+  .setup-top { padding: 48px 32px 32px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .setup-logo { width: 160px; height: auto; display: block; }
+  .wm-loc { margin-top: 12px; font-size: 12px; color: var(--ink-3); }
+  .setup-body { flex: 1; padding: 36px 32px; display: flex; flex-direction: column; gap: 8px; }
+  .section-label { font-size: 10px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--ink-3); margin-bottom: 16px; }
+  .players-list { display: flex; flex-direction: column; gap: 10px; }
+  .player-row { display: flex; align-items: center; gap: 12px; }
+  .player-idx { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink-3); width: 16px; flex-shrink: 0; text-align: right; }
+  .player-row input { flex: 1; padding: 13px 16px; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--ink); background: var(--bg); outline: none; transition: border-color 0.15s; -webkit-appearance: none; }
+  .player-row input::placeholder { font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 400; letter-spacing: 0; color: var(--ink-3); }
+  .player-row input:focus { border-color: var(--red); }
+  .rm-btn { background: none; border: none; color: var(--ink-3); font-size: 20px; cursor: pointer; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: color 0.12s; flex-shrink: 0; }
+  .rm-btn:hover { color: var(--red); }
+  .add-btn { display: flex; align-items: center; gap: 8px; background: none; border: 1.5px dashed var(--border); border-radius: 10px; padding: 12px 16px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink-3); cursor: pointer; width: 100%; margin-top: 4px; transition: all 0.12s; }
+  .add-btn:hover { border-color: var(--ink-2); color: var(--ink-2); }
+  .setup-footer { padding: 24px 32px 44px; border-top: 1px solid var(--border); }
+  .btn-red { width: 100%; padding: 16px; background: var(--red); border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: #fff; cursor: pointer; transition: opacity 0.12s; }
+  .btn-red:active { opacity: 0.82; }
+  .btn-outline { width: 100%; padding: 14px; background: none; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 2px; color: var(--ink-2); cursor: pointer; transition: border-color 0.12s; margin-top: 10px; }
+  .btn-outline:hover { border-color: var(--ink-2); }
+  .setup-note { margin-top: 14px; font-size: 11px; color: var(--ink-3); text-align: center; }
+
+  /* SCORING */
+  #scorecard { background: var(--bg); }
+  .topbar { height: 4px; background: var(--red); flex-shrink: 0; }
+  .sc-header { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .sc-logo-sm { height: 40px; width: auto; display: block; }
+  .sc-actions { display: flex; gap: 6px; }
+  .icon-btn { background: var(--bg-2); border: none; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; transition: background 0.12s; }
+  .icon-btn:active { background: var(--bg-3); }
+
+  /* Hole nav dots */
+  .hole-nav { padding: 12px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .nav-arr { background: none; border: 1.5px solid var(--border); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; color: var(--ink-2); transition: all 0.12s; flex-shrink: 0; }
+  .nav-arr:disabled { opacity: 0.25; cursor: default; }
+  .nav-arr:not(:disabled):active { background: var(--bg-2); }
+  .dots-scroll { flex: 1; overflow-x: auto; scrollbar-width: none; }
+  .dots-scroll::-webkit-scrollbar { display: none; }
+  .dots-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+  .h-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: all 0.18s; cursor: pointer; flex-shrink: 0; }
+  .h-dot.done   { background: var(--ink-3); }
+  .h-dot.active { background: var(--red); transform: scale(1.6); }
+  .h-dot.tb     { background: transparent; border: 1.5px solid var(--border); }
+  .h-dot.tb.active { border-color: var(--red); }
+  .dot-div { display: inline-block; width: 1px; height: 12px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+  .hole-counter { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--ink-3); flex-shrink: 0; min-width: 44px; text-align: right; }
+
+  /* Hole info */
+  .hole-info { padding: 28px 24px 16px; flex-shrink: 0; }
+  .hi-label { font-size: 10px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; color: var(--ink-3); margin-bottom: 2px; }
+  .hi-num { font-family: 'Bebas Neue', sans-serif; font-size: 72px; line-height: 1; color: var(--ink); }
+  .hi-par-line { font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-3); margin-top: 6px; }
+  .hi-par-line span { color: var(--ink); }
+
+  /* Score rows */
+  .score-entries { padding: 0 24px; flex-shrink: 0; }
+  .score-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+  .score-row:last-child { border-bottom: none; }
+  .sr-name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.5px; color: var(--ink); width: 52px; flex-shrink: 0; }
+  .sr-stepper { flex: 1; display: flex; align-items: center; justify-content: flex-end; }
+  .step { width: 48px; height: 48px; border-radius: 50%; border: none; background: var(--bg-2); font-size: 26px; font-weight: 300; color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.1s; flex-shrink: 0; user-select: none; }
+  .step:active { transform: scale(0.86); }
+  .step.minus:active { background: #fce8e5; color: var(--red); }
+  .step.plus:active  { background: #e5f0e8; color: var(--green); }
+  .step:disabled { opacity: 0.2; }
+  .sr-score { min-width: 72px; text-align: center; flex-shrink: 0; }
+  .sr-num { font-family: 'Bebas Neue', sans-serif; font-size: 44px; line-height: 1; color: var(--ink); }
+  .sr-num.eagle  { color: var(--green); }
+  .sr-num.birdie { color: var(--green); }
+  .sr-num.bogey  { color: var(--amber); }
+  .sr-num.dbl    { color: var(--red); }
+  .sr-num.worse  { color: var(--red); }
+  .sr-lbl { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink); margin-top: -2px; }
+  .sr-lbl.eagle  { color: var(--ink); }
+  .sr-lbl.birdie { color: var(--ink); }
+  .sr-lbl.bogey  { color: var(--ink); }
+  .sr-lbl.dbl    { color: var(--ink); }
+  .sr-lbl.worse  { color: var(--ink); }
+
+  /* Next button */
+  .next-wrap { padding: 18px 24px 14px; flex-shrink: 0; }
+  .next-btn { width: 100%; padding: 15px; background: var(--red); border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2.5px; color: #fff; cursor: pointer; transition: opacity 0.12s; }
+  .next-btn:active { opacity: 0.82; }
+
+  /* Scoreboard */
+  .scoreboard { margin: 0 24px 24px; background: #e8f4ff; border-radius: 14px; padding: 20px 24px; flex-shrink: 0; }
+  .sb-label { font-size: 9px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: rgba(0,0,0,0.3); margin-bottom: 16px; }
+  .sb-players { display: flex; justify-content: space-around; }
+  .sb-player { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; position: relative; }
+  .sb-player + .sb-player::before { content: ''; position: absolute; left: 0; top: 10%; height: 80%; width: 1px; background: rgba(0,0,0,0.08); }
+  .sb-initials { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1.5px; color: rgba(0,0,0,0.4); }
+  .sb-total { font-family: 'Bebas Neue', sans-serif; font-size: 42px; line-height: 1; color: var(--ink); }
+  .sb-rel { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: rgba(0,0,0,0.35); }
+  .sb-rel.under { color: #1a7a48; }
+  .sb-rel.over  { color: #bf2d1e; }
+  .sb-player.leading .sb-total   { color: var(--red); }
+  .sb-player.leading .sb-initials { color: rgba(0,0,0,0.65); }
+
+  /* Ace modal */
+  .ace-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,0); pointer-events: none; transition: background 0.3s; }
+  .ace-overlay.open { background: rgba(0,0,0,0.55); pointer-events: all; }
+  .ace-sheet { background: var(--bg); border-radius: 24px 24px 0 0; width: 100%; max-width: 480px; padding: 0 0 40px; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32,0.72,0,1); overflow: hidden; }
+  .ace-overlay.open .ace-sheet { transform: translateY(0); }
+  .ace-top { background: var(--red); padding: 32px 28px 28px; text-align: center; }
+  .ace-emoji { font-size: 56px; display: block; margin-bottom: 12px; }
+  .ace-title { font-family: 'Bebas Neue', sans-serif; font-size: 48px; letter-spacing: 3px; color: #fff; line-height: 1; }
+  .ace-player-name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; color: rgba(255,255,255,0.85); margin-top: 4px; }
+  .ace-sub { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 6px; }
+  .ace-body { padding: 24px 28px 0; display: flex; flex-direction: column; gap: 12px; }
+  .ace-detail { background: var(--bg-2); border-radius: 12px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; }
+  .ace-detail-icon { font-size: 24px; flex-shrink: 0; }
+  .ace-detail-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-3); margin-bottom: 2px; }
+  .ace-detail-val { font-size: 15px; font-weight: 500; color: var(--ink); }
+  .ace-close-btn { width: 100%; padding: 15px; background: var(--red); border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2.5px; color: #fff; cursor: pointer; transition: opacity 0.12s; }
+  .ace-close-btn:active { opacity: 0.82; }
+
+  /* Full scorecard */
+  #fullcard { background: var(--bg); }
+  .fc-topbar { height: 4px; background: var(--red); }
+  .fc-nav { padding: 14px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+  .fc-title { flex: 1; font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--ink); }
+  .table-wrap { overflow-x: auto; padding: 20px; flex: 1; }
+  table.sc-tbl { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 12px; }
+  .sc-tbl th { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; color: var(--ink-3); padding: 6px 4px; text-align: center; border-bottom: 1.5px solid var(--border); }
+  .sc-tbl th.th-p { text-align: left; padding-left: 0; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; }
+  .sc-tbl th.th-tot { color: var(--ink); font-weight: 700; }
+  .sc-tbl th.th-tb { color: var(--red); font-weight: 700; border-left: 1.5px solid var(--border); }
+  .sc-tbl td { padding: 8px 4px; text-align: center; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink); border-bottom: 1px solid var(--border); }
+  .sc-tbl td.td-p { text-align: left; padding-left: 0; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1.5px; }
+  .sc-tbl td.td-tot { font-weight: 700; font-size: 13px; }
+  .sc-tbl td.td-rel { font-weight: 700; }
+  .sc-tbl td.td-rel.under { color: var(--green); }
+  .sc-tbl td.td-rel.over  { color: var(--red); }
+  .sc-tbl td.td-tb { border-left: 1.5px solid var(--border); color: var(--ink-2); }
+  .sc-tbl tr.par-r td { background: var(--bg-2); color: var(--ink-3); font-size: 11px; border-bottom: 1.5px solid var(--border); }
+  .sc-tbl tr.par-r td.td-p { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+  .c-eagle  { color: var(--green); font-weight: 700; }
+  .c-birdie { color: var(--green); }
+  .c-bogey  { color: var(--amber); }
+  .c-dbl    { color: var(--red); }
+  .c-worse  { color: var(--red); font-weight: 700; }
+  .c-ace    { color: var(--red); font-weight: 900; }
+
+  /* Results */
+  #results { background: var(--bg); }
+  .res-topbar { height: 4px; background: var(--red); }
+  .res-header { padding: 40px 32px 28px; border-bottom: 1px solid var(--border); }
+  .res-logo { height: 80px; width: auto; display: block; margin-bottom: 16px; }
+  .res-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--red); margin-bottom: 6px; }
+  .res-title { font-family: 'Bebas Neue', sans-serif; font-size: 48px; letter-spacing: 2px; line-height: 1; color: var(--ink); }
+  .res-sub { margin-top: 6px; font-size: 12px; color: var(--ink-3); }
+  .res-list { flex: 1; padding: 20px 32px; display: flex; flex-direction: column; }
+  .res-row { display: flex; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); gap: 14px; }
+  .res-row:last-child { border-bottom: none; }
+  .res-pos { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; color: var(--ink-3); width: 28px; flex-shrink: 0; }
+  .res-row:first-child .res-pos { color: var(--red); font-weight: 700; }
+  .res-name { flex: 1; font-family: 'Bebas Neue', sans-serif; font-size: 30px; letter-spacing: 1.5px; }
+  .res-detail { text-align: right; }
+  .res-total { font-family: 'Bebas Neue', sans-serif; font-size: 30px; line-height: 1; }
+  .res-rel { font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--ink-3); margin-top: 2px; }
+  .res-rel.under { color: var(--green); }
+  .res-rel.over  { color: var(--red); }
+  .aces-recap { margin: 0 32px 16px; background: var(--bg-2); border-radius: 12px; padding: 14px 18px; }
+  .aces-recap-label { font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--red); margin-bottom: 8px; }
+  .ace-recap-row { font-size: 13px; color: var(--ink-2); padding: 2px 0; }
+  .res-footer { padding: 20px 32px 44px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup" class="screen active">
+  <div class="setup-top">
+    <img class="setup-logo" src="https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png" alt="The Mini Gem">
+    <div class="wm-loc">Gem Lake Hills · White Bear Lake, MN</div>
+  </div>
+  <div class="setup-body">
+    <div>
+      <div class="section-label">Players — use initials</div>
+      <div class="players-list" id="playersList">
+        <div class="player-row">
+          <span class="player-idx">1</span>
+          <input type="text" class="player-input" placeholder="Initials" maxlength="4" autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="player-row">
+          <span class="player-idx">2</span>
+          <input type="text" class="player-input" placeholder="Initials" maxlength="4" autocomplete="off" autocorrect="off" spellcheck="false">
+          <button class="rm-btn" id="rmBtn2" style="display:none">×</button>
+        </div>
+      </div>
+      <button class="add-btn" id="addBtn"><span>+</span> Add player</button>
+    </div>
+  </div>
+  <div class="setup-footer">
+    <button class="btn-red" id="startBtn">Start Round</button>
+    <div class="setup-note">No accounts · Nothing saved after you close</div>
+  </div>
+</div>
+
+<!-- SCORING -->
+<div id="scorecard" class="screen">
+  <div class="topbar"></div>
+  <div class="sc-header">
+    <img class="sc-logo-sm" src="https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png" alt="Mini Gem">
+    <div class="sc-actions">
+      <button class="icon-btn" id="showCardBtn">📋</button>
+      <button class="icon-btn" id="finishBtn1">🏁</button>
+    </div>
+  </div>
+  <div class="hole-nav">
+    <button class="nav-arr" id="prevBtn">‹</button>
+    <div class="dots-scroll"><div class="dots-row" id="dotsRow"></div></div>
+    <div class="hole-counter" id="holeCounter">1/19</div>
+    <button class="nav-arr" id="nextBtn">›</button>
+  </div>
+  <div class="hole-info">
+    <div class="hi-label">Hole</div>
+    <div class="hi-num" id="hiNum">1</div>
+    <div class="hi-par-line" id="hiParLine"></div>
+  </div>
+  <div class="score-entries" id="scoreEntries"></div>
+  <div class="next-wrap">
+    <button class="next-btn" id="nextHoleBtn">Next Hole</button>
+  </div>
+  <div class="scoreboard">
+    <div class="sb-label">Running Score</div>
+    <div class="sb-players" id="sbPlayers"></div>
+  </div>
+</div>
+
+<!-- ACE MODAL -->
+<div class="ace-overlay" id="aceOverlay">
+  <div class="ace-sheet">
+    <div class="ace-top">
+      <span class="ace-emoji">⭐</span>
+      <div class="ace-title">Hole in One!</div>
+      <div class="ace-player-name" id="acePlayerName"></div>
+      <div class="ace-sub">That's a Mini Gem moment.</div>
+    </div>
+    <div class="ace-body">
+      <div class="ace-detail">
+        <div class="ace-detail-icon">⛳</div>
+        <div>
+          <div class="ace-detail-label">Hole</div>
+          <div class="ace-detail-val" id="aceHoleDetail"></div>
+        </div>
+      </div>
+      <div class="ace-detail">
+        <div class="ace-detail-icon">📸</div>
+        <div>
+          <div class="ace-detail-label">Don't forget</div>
+          <div class="ace-detail-val">Grab a photo to remember this one!</div>
+        </div>
+      </div>
+      <button class="ace-close-btn" id="aceDismissBtn">Back to Scoring</button>
+    </div>
+  </div>
+</div>
+
+<!-- FULL SCORECARD -->
+<div id="fullcard" class="screen">
+  <div class="fc-topbar"></div>
+  <div class="fc-nav">
+    <button class="icon-btn" id="fcBackBtn">‹</button>
+    <div class="fc-title">Scorecard</div>
+    <button class="icon-btn" id="fcFinishBtn">🏁</button>
+  </div>
+  <div class="table-wrap">
+    <table class="sc-tbl" id="scTbl"></table>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div id="results" class="screen">
+  <div class="res-topbar"></div>
+  <div class="res-header">
+    <img class="res-logo" src="https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png" alt="Mini Gem">
+    <div class="res-eyebrow">Round Complete</div>
+    <div class="res-title">Final Scores</div>
+    <div class="res-sub">The Mini Gem · Gem Lake Hills</div>
+  </div>
+  <div class="res-list" id="resList"></div>
+  <div class="aces-recap" id="acesRecap" style="display:none">
+    <div class="aces-recap-label">Holes in One</div>
+    <div id="acesRecapList"></div>
+  </div>
+  <div class="res-footer">
+    <button class="btn-outline" id="viewCardBtn">View Full Scorecard</button>
+    <button class="btn-red" id="newRoundBtn">New Round</button>
+  </div>
+</div>
+
+<script>
+var PARS  = [2,2,3,3,2,2,3,3,2, 3,3,4,2,3,3,3,2,3, null];
+var TOTAL = 19;
+var MAX   = 7;
+var G     = { players:[], scores:[], hole:0, aces:[] };
+var pCount = 2;
+
+// ── Helpers ──
+var doc   = document;
+var mkEl  = function(t) { return doc.createElement(t); };
+var qAll  = function(s) { return doc.querySelectorAll(s); };
+function el(id) { return doc.getElementById(id); }
+
+function showScreen(id) {
+  var screens = qAll('.screen');
+  for (var i=0; i<screens.length; i++) screens[i].classList.remove('active');
+  el(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function makeEl(tag, cls) {
+  var e = mkEl(tag);
+  if (cls) e.className = cls;
+  return e;
+}
+
+// ── Setup ──
+function addPlayer() {
+  if (pCount >= 6) return;
+  pCount++;
+  var list = el('playersList');
+  var row  = makeEl('div', 'player-row');
+  var idx  = makeEl('span', 'player-idx');
+  idx.textContent = pCount;
+  var inp  = mkEl('input');
+  inp.type = 'text'; inp.className = 'player-input'; inp.placeholder = 'Initials';
+  inp.maxLength = 4; inp.autocomplete = 'off'; inp.spellcheck = false;
+  var btn  = makeEl('button', 'rm-btn');
+  btn.textContent = '×';
+  btn.addEventListener('click', function() { removePlayer(btn); });
+  row.appendChild(idx); row.appendChild(inp); row.appendChild(btn);
+  list.appendChild(row);
+  if (pCount >= 6) el('addBtn').style.display = 'none';
+  updateRmBtns();
+  inp.focus();
+}
+
+function removePlayer(btn) {
+  btn.closest('.player-row').remove();
+  pCount--;
+  el('addBtn').style.display = '';
+  var idxEls = qAll('#playersList .player-idx');
+  for (var i=0; i<idxEls.length; i++) idxEls[i].textContent = i+1;
+  updateRmBtns();
+}
+
+function updateRmBtns() {
+  var rows = qAll('#playersList .player-row');
+  var show = rows.length > 2;
+  rows.forEach(function(row) {
+    var b = row.querySelector('.rm-btn');
+    if (b) b.style.display = show ? '' : 'none';
+  });
+}
+
+function startRound() {
+  try {
+    var inputs  = qAll('#playersList .player-input');
+    var players = [];
+    for (var i = 0; i < inputs.length; i++) {
+      var v = inputs[i].value.trim().toUpperCase();
+      if (v) players.push(v);
+    }
+    if (!players.length) { alert('Add at least one player.'); return; }
+    
+    var scores = [];
+    for (var pi = 0; pi < players.length; pi++) {
+      var playerScores = [];
+      for (var hi = 0; hi < PARS.length; hi++) {
+        playerScores.push(PARS[hi] === null ? 1 : PARS[hi]);
+      }
+      scores.push(playerScores);
+    }
+    
+    G = {
+      players: players,
+      scores:  scores,
+      hole: 0,
+      aces: []
+    };
+    buildDots();
+    renderHole();
+    renderScoreboard();
+    showScreen('scorecard');
+  } catch(err) {
+    console.error('startRound error:', err);
+    alert('Error starting round: ' + err.message);
+  }
+}
+
+// ── Dots ──
+function buildDots() {
+  var row = el('dotsRow');
+  row.textContent = '';
+  for (var i=0; i<TOTAL; i++) {
+    if (i===9 || i===18) {
+      var div = makeEl('span', 'dot-div');
+      row.appendChild(div);
+    }
+    var d = makeEl('span', 'h-dot' + (PARS[i]===null ? ' tb' : ''));
+    (function(idx) {
+      d.addEventListener('click', function() { goHole(idx); });
+    })(i);
+    row.appendChild(d);
+  }
+  syncDots();
+}
+
+function syncDots() {
+  var dots = qAll('.h-dot');
+  dots.forEach(function(d, i) {
+    d.classList.remove('active','done');
+    if (i === G.hole) {
+      d.classList.add('active');
+    } else {
+      var par = PARS[i];
+      var base = par === null ? 1 : par;
+      var changed = G.scores.some(function(p) { return p[i] !== base; });
+      if (changed) d.classList.add('done');
+    }
+  });
+  el('holeCounter').textContent = (G.hole+1) + '/19';
+  el('prevBtn').disabled = G.hole === 0;
+  el('nextBtn').disabled = G.hole === TOTAL-1;
+}
+
+// ── Render hole ──
+function renderHole() {
+  var h   = G.hole;
+  var par = PARS[h];
+  var isTB = par === null;
+
+  el('hiNum').textContent = h+1;
+
+  var parLine = el('hiParLine');
+  parLine.textContent = '';
+  if (isTB) {
+    parLine.textContent = 'Tiebreaker — fewest strokes wins';
+    parLine.style.color = 'var(--red)';
+  } else {
+    parLine.style.color = '';
+    parLine.textContent = 'Par ' + par + '  ·  Max ' + MAX;
+  }
+
+  el('nextHoleBtn').textContent = (h === TOTAL-1) ? 'Finish Round' : 'Next Hole';
+
+  var entries = el('scoreEntries');
+  entries.textContent = '';
+
+  G.players.forEach(function(name, pi) {
+    var row   = makeEl('div', 'score-row');
+    var nm    = makeEl('div', 'sr-name');
+    nm.textContent = name;
+    var step  = makeEl('div', 'sr-stepper');
+    var minus = makeEl('button', 'step minus');
+    minus.textContent = '−';
+    minus.id = 'mb' + pi;
+    var score = makeEl('div', 'sr-score');
+    score.id  = 'sd' + pi;
+    var plus  = makeEl('button', 'step plus');
+    plus.textContent = '+';
+    plus.id  = 'pb' + pi;
+    (function(idx) {
+      minus.addEventListener('click', function() { adj(idx, -1); });
+      plus.addEventListener('click',  function() { adj(idx,  1); });
+    })(pi);
+    step.appendChild(minus);
+    step.appendChild(score);
+    step.appendChild(plus);
+    row.appendChild(nm);
+    row.appendChild(step);
+    entries.appendChild(row);
+    refreshSD(pi);
+  });
+  syncDots();
+}
+
+function refreshSD(pi) {
+  var h   = G.hole;
+  var par = PARS[h];
+  var isTB = par === null;
+  var s   = G.scores[pi][h];
+  var sd  = el('sd' + pi);
+  var mb  = el('mb' + pi);
+  var pb  = el('pb' + pi);
+  if (!sd) return;
+  mb.disabled = s <= 1;
+  pb.disabled = s >= MAX;
+
+  var numCls = '', lblCls = '', lbl = '';
+  if (isTB) {
+    lbl = s === 1 ? '1 stroke' : s + ' strokes';
+  } else {
+    var d = s - par;
+    if (d <= -2)     { lbl='Eagle';     numCls='eagle';  lblCls='eagle';  }
+    else if (d===-1) { lbl='Birdie';    numCls='birdie'; lblCls='birdie'; }
+    else if (d===0)  { lbl='Par';                                          }
+    else if (d===1)  { lbl='Bogey';     numCls='bogey';  lblCls='bogey';  }
+    else if (d===2)  { lbl='Dbl Bogey'; numCls='dbl';    lblCls='dbl';    }
+    else             { lbl = s>=MAX ? 'Max' : '+'+d; numCls='worse'; lblCls='worse'; }
+  }
+
+  var numEl = makeEl('div', 'sr-num' + (numCls ? ' '+numCls : ''));
+  numEl.textContent = s;
+  
+  if (!isTB) {
+    var d = s - par;
+    if (d < 0) {
+      numEl.style.color = '#bf2d1e';
+    } else if (d === 0) {
+      numEl.style.color = '#111111';
+    } else {
+      numEl.style.color = '#0066cc';
+    }
+  }
+  
+  var lblEl = makeEl('div', 'sr-lbl' + (lblCls ? ' '+lblCls : ''));
+  lblEl.textContent = lbl;
+  sd.textContent = '';
+  sd.appendChild(numEl);
+  sd.appendChild(lblEl);
+}
+
+function adj(pi, delta) {
+  var h    = G.hole;
+  var prev = G.scores[pi][h];
+  var next = Math.max(1, Math.min(MAX, prev + delta));
+  G.scores[pi][h] = next;
+  refreshSD(pi);
+  renderScoreboard();
+  syncDots();
+  if (next === 1 && prev !== 1) triggerAce(pi, h);
+}
+
+function goHole(h)      { G.hole = h; renderHole(); }
+function changeHole(d)  { goHole(Math.max(0, Math.min(TOTAL-1, G.hole+d))); }
+function advanceHole()  {
+  if (G.hole < TOTAL-1) { G.hole++; renderHole(); window.scrollTo(0,0); }
+  else finishRound();
+}
+
+// ── Scoreboard — excludes hole 19 ──
+function renderScoreboard() {
+  var par18 = 0;
+  for (var i=0; i<18; i++) par18 += PARS[i];
+
+  var standings = G.players.map(function(name, pi) {
+    var scoredThru = Math.min(G.hole, 17);
+    var runTot = 0;
+    for (var i=0; i<=scoredThru; i++) runTot += G.scores[pi][i];
+    var tot18 = 0;
+    for (var i=0; i<18; i++) tot18 += G.scores[pi][i];
+    return { name: name, runTot: runTot, toPar: tot18 - par18, order: pi };
+  });
+
+  var c = el('sbPlayers');
+  c.textContent = '';
+  standings.forEach(function(s, rank) {
+    var wrap = makeEl('div', 'sb-player' + (rank===0 ? ' leading' : ''));
+    var ini  = makeEl('div', 'sb-initials');  ini.textContent  = s.name;
+    var tot  = makeEl('div', 'sb-total');     tot.textContent  = s.runTot;
+    
+    if (s.toPar < 0) {
+      tot.style.color = '#bf2d1e';
+    } else if (s.toPar === 0) {
+      tot.style.color = '#111111';
+    } else {
+      tot.style.color = '#0066cc';
+    }
+    
+    var rel  = makeEl('div', 'sb-rel');
+    var relStr = s.toPar===0 ? 'E' : (s.toPar>0 ? '+'+s.toPar : ''+s.toPar);
+    rel.textContent = relStr;
+    wrap.appendChild(ini); wrap.appendChild(tot); wrap.appendChild(rel);
+    c.appendChild(wrap);
+  });
+}
+
+// ── Ace modal ──
+function triggerAce(pi, h) {
+  var name = G.players[pi];
+  var par  = PARS[h];
+  var holeLabel = h < 18 ? 'Hole ' + (h+1) + ' · Par ' + par : 'Hole 19 (Tiebreaker)';
+  var already = G.aces.some(function(a) { return a.pi===pi && a.hole===h; });
+  if (!already) G.aces.push({ pi:pi, hole:h, name:name });
+  el('acePlayerName').textContent = name;
+  el('aceHoleDetail').textContent = holeLabel;
+  el('aceOverlay').classList.add('open');
+}
+
+function closeAce() { el('aceOverlay').classList.remove('open'); }
+
+// ── Full scorecard ──
+function showFullCard() { buildTable(); showScreen('fullcard'); }
+
+function buildTable() {
+  var tbl = el('scTbl');
+  tbl.textContent = '';
+
+  var f9p=0, b9p=0;
+  for (var i=0;i<9;i++)  f9p += PARS[i];
+  for (var i=9;i<18;i++) b9p += PARS[i];
+  var par18 = f9p + b9p;
+
+  // Header row
+  var thead = mkEl('thead');
+  var hr = mkEl('tr');
+  var thp = makeEl('th','th-p'); thp.textContent = 'Player'; hr.appendChild(thp);
+  for (var i=0;i<18;i++) { var th=mkEl('th'); th.textContent=i+1; hr.appendChild(th); }
+  var thf=mkEl('th'); thf.textContent='F9';  hr.appendChild(thf);
+  var thb=mkEl('th'); thb.textContent='B9';  hr.appendChild(thb);
+  var tht=makeEl('th','th-tot'); tht.textContent='Tot'; hr.appendChild(tht);
+  var thr=makeEl('th','th-tot'); thr.textContent='+/−'; hr.appendChild(thr);
+  var th19=makeEl('th','th-tb'); th19.textContent='H19'; hr.appendChild(th19);
+  thead.appendChild(hr);
+  tbl.appendChild(thead);
+
+  var tbody = mkEl('tbody');
+
+  // Par row
+  var pr = makeEl('tr','par-r');
+  var tdpp = makeEl('td','td-p'); tdpp.textContent='Par'; pr.appendChild(tdpp);
+  for (var i=0;i<18;i++) { var td=mkEl('td'); td.textContent=PARS[i]; pr.appendChild(td); }
+  var tdf9=mkEl('td'); tdf9.textContent=f9p; pr.appendChild(tdf9);
+  var tdb9=mkEl('td'); tdb9.textContent=b9p; pr.appendChild(tdb9);
+  var tdtt=makeEl('td','td-tot'); tdtt.textContent=par18; pr.appendChild(tdtt);
+  var tdrd=mkEl('td'); tdrd.textContent='—'; pr.appendChild(tdrd);
+  var td19p=makeEl('td','td-tb'); td19p.textContent='TB'; pr.appendChild(td19p);
+  tbody.appendChild(pr);
+
+  // Player rows
+  G.players.forEach(function(name, pi) {
+    var row = mkEl('tr');
+    var tdp = makeEl('td','td-p'); tdp.textContent = name; row.appendChild(tdp);
+    var f9=0, b9=0, tot=0;
+    for (var i=0;i<18;i++) {
+      var s=G.scores[pi][i], p=PARS[i], d=s-p;
+      var td = mkEl('td');
+      td.textContent = s;
+      if (s===1) td.className='c-ace';
+      else if (d<=-2) td.className='c-eagle';
+      else if (d===-1) td.className='c-birdie';
+      else if (d===1)  td.className='c-bogey';
+      else if (d===2)  td.className='c-dbl';
+      else if (d>2)    td.className='c-worse';
+      row.appendChild(td);
+      tot+=s;
+      if (i<9) f9+=s; else b9+=s;
+    }
+    var toPar = tot - par18;
+    var toParStr = toPar===0?'E':toPar>0?'+'+toPar:''+toPar;
+
+    var tdf = mkEl('td'); tdf.textContent=f9; row.appendChild(tdf);
+    var tdb = mkEl('td'); tdb.textContent=b9; row.appendChild(tdb);
+    var tdt = makeEl('td','td-tot'); tdt.textContent=tot; row.appendChild(tdt);
+    var tdr = makeEl('td','td-rel '+(toPar<0?'under':toPar>0?'over':'')); tdr.textContent=toParStr; row.appendChild(tdr);
+    var td19 = makeEl('td','td-tb'); td19.textContent=G.scores[pi][18]; row.appendChild(td19);
+    tbody.appendChild(row);
+  });
+  tbl.appendChild(tbody);
+}
+
+// ── Results ──
+function finishRound() {
+  var f9p=0, b9p=0;
+  for (var i=0;i<9;i++)  f9p += PARS[i];
+  for (var i=9;i<18;i++) b9p += PARS[i];
+  var par18 = f9p + b9p;
+
+  var standings = G.players.map(function(name, pi) {
+    var tot=0;
+    for (var i=0;i<18;i++) tot+=G.scores[pi][i];
+    return { name:name, tot:tot, toPar:tot-par18 };
+  });
+  standings.sort(function(a,b) { return a.toPar-b.toPar; });
+
+  var list = el('resList');
+  list.textContent = '';
+  var positions = ['1st','2nd','3rd','4th','5th','6th'];
+  standings.forEach(function(s, rank) {
+    var row  = makeEl('div','res-row');
+    var pos  = makeEl('div','res-pos');   pos.textContent  = positions[rank];
+    var nm   = makeEl('div','res-name');  nm.textContent   = s.name;
+    var det  = makeEl('div','res-detail');
+    var tot  = makeEl('div','res-total'); tot.textContent  = s.tot;
+    var relStr = s.toPar===0?'Even':s.toPar>0?'+'+s.toPar:''+s.toPar;
+    var rel  = makeEl('div','res-rel '+(s.toPar<0?'under':s.toPar>0?'over':''));
+    rel.textContent = relStr;
+    det.appendChild(tot); det.appendChild(rel);
+    row.appendChild(pos); row.appendChild(nm); row.appendChild(det);
+    list.appendChild(row);
+  });
+
+  var recap = el('acesRecap');
+  var recapList = el('acesRecapList');
+  if (G.aces.length > 0) {
+    recapList.textContent = '';
+    G.aces.forEach(function(a) {
+      var d = makeEl('div','ace-recap-row');
+      var hLabel = a.hole<18 ? 'Hole '+(a.hole+1) : 'Hole 19 (TB)';
+      d.textContent = '⭐ ' + a.name + ' — ' + hLabel;
+      recapList.appendChild(d);
+    });
+    recap.style.display = '';
+  } else {
+    recap.style.display = 'none';
+  }
+  showScreen('results');
+}
+
+function newRound() {
+  pCount = 2;
+  var list = el('playersList');
+  list.textContent = '';
+
+  var makeRow = function(num, showRm) {
+    var row = makeEl('div','player-row');
+    var idx = makeEl('span','player-idx'); idx.textContent = num;
+    var inp = mkEl('input');
+    inp.type='text'; inp.className='player-input'; inp.placeholder='Initials';
+    inp.maxLength=4; inp.autocomplete='off'; inp.spellcheck=false;
+    row.appendChild(idx); row.appendChild(inp);
+    if (showRm) {
+      var btn = makeEl('button','rm-btn'); btn.textContent='×'; btn.style.display='none';
+      btn.addEventListener('click', function() { removePlayer(btn); });
+      row.appendChild(btn);
+    }
+    return row;
+  };
+  list.appendChild(makeRow(1, false));
+  list.appendChild(makeRow(2, true));
+  el('addBtn').style.display = '';
+  showScreen('setup');
+}
+
+// ── Wire up static buttons ──
+el('addBtn').addEventListener('click',        function() { addPlayer(); });
+el('startBtn').addEventListener('click',      function() { startRound(); });
+el('showCardBtn').addEventListener('click',   function() { showFullCard(); });
+el('finishBtn1').addEventListener('click',    function() { finishRound(); });
+el('prevBtn').addEventListener('click',       function() { changeHole(-1); });
+el('nextBtn').addEventListener('click',       function() { changeHole(1); });
+el('nextHoleBtn').addEventListener('click',   function() { advanceHole(); });
+el('aceDismissBtn').addEventListener('click', function() { closeAce(); });
+el('aceOverlay').addEventListener('click',    function(e) { if (e.target===el('aceOverlay')) closeAce(); });
+el('fcBackBtn').addEventListener('click',     function() { showScreen('scorecard'); });
+el('fcFinishBtn').addEventListener('click',   function() { finishRound(); });
+el('viewCardBtn').addEventListener('click',   function() { showFullCard(); });
+el('newRoundBtn').addEventListener('click',   function() { newRound(); });
+el('rmBtn2').addEventListener('click',        function() { removePlayer(el('rmBtn2')); });
+</script>
+</body>
+</html>
