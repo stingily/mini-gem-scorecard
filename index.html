@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
+    --blue:   #26427c;
     --red:    #bf2d1e;
     --ink:    #111111;
     --ink-2:  #666660;
@@ -41,6 +42,26 @@
   .rm-btn:hover { color: var(--red); }
   .add-btn { display: flex; align-items: center; gap: 8px; background: none; border: 1.5px dashed var(--border); border-radius: 10px; padding: 12px 16px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink-3); cursor: pointer; width: 100%; margin-top: 4px; transition: all 0.12s; }
   .add-btn:hover { border-color: var(--ink-2); color: var(--ink-2); }
+  /* Course selector */
+  .course-selector { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .course-btn { flex: 1; min-width: 90px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg-2); font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1.5px; cursor: pointer; transition: all 0.12s; color: var(--ink); }
+  .course-btn:hover { border-color: var(--ink-2); background: var(--bg-3); }
+  .course-btn.active { background: var(--red); color: #fff; border-color: var(--red); }
+
+  /* Branding overrides (body classes toggled by JS) */
+  .brand-blue .topbar,
+  .brand-blue .fc-topbar { background: var(--blue); }
+  .brand-blue .next-btn,
+  .brand-blue .btn-red { background: var(--blue); }
+  .brand-blue .sb-player.leading .sb-total { color: var(--blue); }
+  .brand-blue .course-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  .brand-red .topbar,
+  .brand-red .fc-topbar { background: var(--red); }
+  .brand-red .next-btn,
+  .brand-red .btn-red { background: var(--red); }
+  .brand-red .sb-player.leading .sb-total { color: var(--red); }
+  .brand-red .course-btn.active { background: var(--red); color: #fff; border-color: var(--red); }
   .setup-footer { padding: 24px 32px 44px; border-top: 1px solid var(--border); }
   .btn-red { width: 100%; padding: 16px; background: var(--red); border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: #fff; cursor: pointer; transition: opacity 0.12s; }
   .btn-red:active { opacity: 0.82; }
@@ -192,6 +213,13 @@
   .aces-recap-label { font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--red); margin-bottom: 8px; }
   .ace-recap-row { font-size: 13px; color: var(--ink-2); padding: 2px 0; }
   .res-footer { padding: 20px 32px 44px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+  
+  /* Mini Gem promo */
+  .mini-gem-promo { background: linear-gradient(135deg, var(--blue), #1a3a5a); color: #fff; border-radius: 12px; padding: 24px; margin: 20px 32px; text-align: center; }
+  .promo-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1.5px; margin-bottom: 12px; }
+  .promo-text { font-size: 14px; line-height: 1.6; margin-bottom: 16px; color: rgba(255,255,255,0.95); }
+  .promo-btn { display: inline-block; background: rgba(255,255,255,0.2); border: 2px solid #fff; color: #fff; padding: 12px 24px; border-radius: 8px; font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px; text-decoration: none; cursor: pointer; transition: all 0.2s; }
+  .promo-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
 </style>
 </head>
 <body>
@@ -199,11 +227,19 @@
 <!-- SETUP -->
 <div id="setup" class="screen active">
   <div class="setup-top">
-    <img class="setup-logo" src="https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png" alt="The Mini Gem">
+    <img class="setup-logo" src="https://gemlakehillsgolf.com/wp-content/uploads/2026/01/Lineup-notext.png" alt="Gem Lake Hills" style="max-height: 120px; width: auto;">
     <div class="wm-loc">Gem Lake Hills · White Bear Lake, MN</div>
   </div>
   <div class="setup-body">
     <div>
+      <div class="section-label">Course</div>
+      <div class="course-selector" id="courseSelector">
+        <button class="course-btn" data-course="par3">Par-3 (9H)</button>
+        <button class="course-btn" data-course="exec">Exec (9H)</button>
+        <button class="course-btn" data-course="full">18 Holes</button>
+        <button class="course-btn active" data-course="minigem">Mini Gem</button>
+      </div>
+
       <div class="section-label">Players — use initials</div>
       <div class="players-list" id="playersList">
         <div class="player-row">
@@ -229,7 +265,7 @@
 <div id="scorecard" class="screen">
   <div class="topbar"></div>
   <div class="sc-header">
-    <img class="sc-logo-sm" src="https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png" alt="Mini Gem">
+    <img id="scLogoImg" class="sc-logo-sm" src="https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png" alt="Mini Gem">
     <div class="sc-actions">
       <button class="icon-btn" id="showCardBtn">📋</button>
       <button class="icon-btn" id="finishBtn1">🏁</button>
@@ -302,15 +338,20 @@
 <div id="results" class="screen">
   <div class="res-topbar"></div>
   <div class="res-header">
-    <img class="res-logo" src="https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png" alt="Mini Gem">
+    <img class="res-logo" src="https://gemlakehillsgolf.com/wp-content/uploads/2026/01/Lineup-notext.png" alt="Gem Lake Hills" style="max-height: 80px; width: auto;">
     <div class="res-eyebrow">Round Complete</div>
     <div class="res-title">Final Scores</div>
-    <div class="res-sub">The Mini Gem · Gem Lake Hills</div>
+    <div class="res-sub">Gem Lake Hills</div>
   </div>
   <div class="res-list" id="resList"></div>
   <div class="aces-recap" id="acesRecap" style="display:none">
     <div class="aces-recap-label">Holes in One</div>
     <div id="acesRecapList"></div>
+  </div>
+  <div class="mini-gem-promo" id="miniGemPromo" style="display:none">
+    <div class="promo-title">Want the fun to continue?</div>
+    <div class="promo-text">Play Mini Gem for just $10 · Check in with the Starter Shack</div>
+    <a href="#" class="promo-btn" id="miniGemPromoBtn">Play Mini Gem</a>
   </div>
   <div class="res-footer">
     <button class="btn-outline" id="viewCardBtn">View Full Scorecard</button>
@@ -319,8 +360,33 @@
 </div>
 
 <script>
-var PARS  = [2,2,3,3,2,2,3,3,2, 3,3,4,2,3,3,3,2,3, null];
-var TOTAL = 19;
+// Course definitions
+var COURSES = {
+  par3: {
+    name: 'Par-3',
+    pars: [3,3,3,3,3,3,3,3,3],
+    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2026/05/Gem-Flag-Stick-White.png'
+  },
+  exec: {
+    name: 'Exec',
+    pars: [3,4,3,3,4,3,4,3,3],
+    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2026/05/Gem-Flag-Stick-Blue.png'
+  },
+  full: {
+    name: '18 Holes',
+    pars: [3,3,3,3,3,3,3,3,3, 3,4,3,3,4,3,4,3,3],
+    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-18-logo.png'
+  },
+  minigem: {
+    name: 'Mini Gem',
+    pars: [2,2,3,3,2,2,3,3,2,3,3,4,2,3,3,3,2,3,1],
+    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png'
+  }
+};
+
+var SELECTED_COURSE = 'minigem';
+var PARS = COURSES[SELECTED_COURSE].pars.slice();
+var TOTAL = PARS.length;
 var MAX   = 7;
 var G     = { players:[], scores:[], hole:0, aces:[] };
 var pCount = 2;
@@ -385,6 +451,9 @@ function updateRmBtns() {
 
 function startRound() {
   try {
+    // Ensure PARS/TOTAL reflect selected course
+    PARS = COURSES[SELECTED_COURSE].pars.slice();
+    TOTAL = PARS.length;
     var inputs  = qAll('#playersList .player-input');
     var players = [];
     for (var i = 0; i < inputs.length; i++) {
@@ -397,7 +466,7 @@ function startRound() {
     for (var pi = 0; pi < players.length; pi++) {
       var playerScores = [];
       for (var hi = 0; hi < PARS.length; hi++) {
-        playerScores.push(PARS[hi] === null ? 1 : PARS[hi]);
+        playerScores.push(PARS[hi]);
       }
       scores.push(playerScores);
     }
@@ -423,11 +492,16 @@ function buildDots() {
   var row = el('dotsRow');
   row.textContent = '';
   for (var i=0; i<TOTAL; i++) {
-    if (i===9 || i===18) {
+    // divider for front/back when appropriate
+    if (TOTAL===18 && i===9) {
       var div = makeEl('span', 'dot-div');
       row.appendChild(div);
     }
-    var d = makeEl('span', 'h-dot' + (PARS[i]===null ? ' tb' : ''));
+    if (TOTAL===19 && (i===9 || i===18)) {
+      var div = makeEl('span', 'dot-div');
+      row.appendChild(div);
+    }
+    var d = makeEl('span', 'h-dot' + (i===TOTAL-1 ? ' tb' : ''));
     (function(idx) {
       d.addEventListener('click', function() { goHole(idx); });
     })(i);
@@ -444,12 +518,11 @@ function syncDots() {
       d.classList.add('active');
     } else {
       var par = PARS[i];
-      var base = par === null ? 1 : par;
-      var changed = G.scores.some(function(p) { return p[i] !== base; });
+      var changed = G.scores.some(function(p) { return p[i] !== par; });
       if (changed) d.classList.add('done');
     }
   });
-  el('holeCounter').textContent = (G.hole+1) + '/19';
+  el('holeCounter').textContent = (G.hole+1) + '/' + TOTAL;
   el('prevBtn').disabled = G.hole === 0;
   el('nextBtn').disabled = G.hole === TOTAL-1;
 }
@@ -458,19 +531,13 @@ function syncDots() {
 function renderHole() {
   var h   = G.hole;
   var par = PARS[h];
-  var isTB = par === null;
 
   el('hiNum').textContent = h+1;
 
   var parLine = el('hiParLine');
   parLine.textContent = '';
-  if (isTB) {
-    parLine.textContent = 'Tiebreaker — fewest strokes wins';
-    parLine.style.color = 'var(--red)';
-  } else {
-    parLine.style.color = '';
-    parLine.textContent = 'Par ' + par + '  ·  Max ' + MAX;
-  }
+  parLine.style.color = '';
+  parLine.textContent = 'Par ' + par + '  ·  Max ' + MAX;
 
   el('nextHoleBtn').textContent = (h === TOTAL-1) ? 'Finish Round' : 'Next Hole';
 
@@ -508,7 +575,6 @@ function renderHole() {
 function refreshSD(pi) {
   var h   = G.hole;
   var par = PARS[h];
-  var isTB = par === null;
   var s   = G.scores[pi][h];
   var sd  = el('sd' + pi);
   var mb  = el('mb' + pi);
@@ -518,30 +584,21 @@ function refreshSD(pi) {
   pb.disabled = s >= MAX;
 
   var numCls = '', lblCls = '', lbl = '';
-  if (isTB) {
-    lbl = s === 1 ? '1 stroke' : s + ' strokes';
-  } else {
-    var d = s - par;
-    if (d <= -2)     { lbl='Eagle';     numCls='eagle';  lblCls='eagle';  }
-    else if (d===-1) { lbl='Birdie';    numCls='birdie'; lblCls='birdie'; }
-    else if (d===0)  { lbl='Par';                                          }
-    else if (d===1)  { lbl='Bogey';     numCls='bogey';  lblCls='bogey';  }
-    else if (d===2)  { lbl='Dbl Bogey'; numCls='dbl';    lblCls='dbl';    }
-    else             { lbl = s>=MAX ? 'Max' : '+'+d; numCls='worse'; lblCls='worse'; }
-  }
-
+  var d = s - par;
+  if (d <= -2)     { lbl='Eagle';     numCls='eagle';  lblCls='eagle';  }
+  else if (d===-1) { lbl='Birdie';    numCls='birdie'; lblCls='birdie'; }
+  else if (d===0)  { lbl='Par';                                          }
+  else if (d===1)  { lbl='Bogey';     numCls='bogey';  lblCls='bogey';  }
+  else if (d===2)  { lbl='Dbl Bogey'; numCls='dbl';    lblCls='dbl';    }
+  else             { lbl = s>=MAX ? 'Max' : '+'+d; numCls='worse'; lblCls='worse'; }
   var numEl = makeEl('div', 'sr-num' + (numCls ? ' '+numCls : ''));
   numEl.textContent = s;
-  
-  if (!isTB) {
-    var d = s - par;
-    if (d < 0) {
-      numEl.style.color = '#bf2d1e';
-    } else if (d === 0) {
-      numEl.style.color = '#111111';
-    } else {
-      numEl.style.color = '#0066cc';
-    }
+  if (d < 0) {
+    numEl.style.color = '#bf2d1e';
+  } else if (d === 0) {
+    numEl.style.color = '#111111';
+  } else {
+    numEl.style.color = '#0066cc';
   }
   
   var lblEl = makeEl('div', 'sr-lbl' + (lblCls ? ' '+lblCls : ''));
@@ -562,25 +619,25 @@ function adj(pi, delta) {
   if (next === 1 && prev !== 1) triggerAce(pi, h);
 }
 
-function goHole(h)      { G.hole = h; renderHole(); }
+function goHole(h)      { G.hole = h; renderHole(); renderScoreboard(); }
 function changeHole(d)  { goHole(Math.max(0, Math.min(TOTAL-1, G.hole+d))); }
 function advanceHole()  {
-  if (G.hole < TOTAL-1) { G.hole++; renderHole(); window.scrollTo(0,0); }
+  if (G.hole < TOTAL-1) { G.hole++; renderHole(); renderScoreboard(); window.scrollTo(0,0); }
   else finishRound();
 }
 
-// ── Scoreboard — excludes hole 19 ──
+// ── Scoreboard ──
 function renderScoreboard() {
-  var par18 = 0;
-  for (var i=0; i<18; i++) par18 += PARS[i];
+  var parTotal = 0;
+  for (var i=0; i<TOTAL; i++) parTotal += PARS[i];
 
   var standings = G.players.map(function(name, pi) {
-    var scoredThru = Math.min(G.hole, 17);
+    var scoredThru = Math.min(G.hole, TOTAL-1);
     var runTot = 0;
     for (var i=0; i<=scoredThru; i++) runTot += G.scores[pi][i];
-    var tot18 = 0;
-    for (var i=0; i<18; i++) tot18 += G.scores[pi][i];
-    return { name: name, runTot: runTot, toPar: tot18 - par18, order: pi };
+    var totScore = 0;
+    for (var i=0; i<TOTAL; i++) totScore += G.scores[pi][i];
+    return { name: name, runTot: runTot, toPar: totScore - parTotal, order: pi };
   });
 
   var c = el('sbPlayers');
@@ -627,21 +684,20 @@ function buildTable() {
   var tbl = el('scTbl');
   tbl.textContent = '';
 
-  var f9p=0, b9p=0;
-  for (var i=0;i<9;i++)  f9p += PARS[i];
-  for (var i=9;i<18;i++) b9p += PARS[i];
-  var par18 = f9p + b9p;
+  var parTotal = 0;
+  for (var i=0; i<TOTAL; i++) parTotal += PARS[i];
 
   // Header row
   var thead = mkEl('thead');
   var hr = mkEl('tr');
   var thp = makeEl('th','th-p'); thp.textContent = 'Player'; hr.appendChild(thp);
-  for (var i=0;i<18;i++) { var th=mkEl('th'); th.textContent=i+1; hr.appendChild(th); }
-  var thf=mkEl('th'); thf.textContent='F9';  hr.appendChild(thf);
-  var thb=mkEl('th'); thb.textContent='B9';  hr.appendChild(thb);
-  var tht=makeEl('th','th-tot'); tht.textContent='Tot'; hr.appendChild(tht);
+  for (var i=0; i<TOTAL; i++) { 
+    var th=mkEl('th'); 
+    th.textContent=i+1; 
+    hr.appendChild(th); 
+  }
+  var tht=makeEl('th','th-tot'); tht.textContent='Total'; hr.appendChild(tht);
   var thr=makeEl('th','th-tot'); thr.textContent='+/−'; hr.appendChild(thr);
-  var th19=makeEl('th','th-tb'); th19.textContent='H19'; hr.appendChild(th19);
   thead.appendChild(hr);
   tbl.appendChild(thead);
 
@@ -650,41 +706,37 @@ function buildTable() {
   // Par row
   var pr = makeEl('tr','par-r');
   var tdpp = makeEl('td','td-p'); tdpp.textContent='Par'; pr.appendChild(tdpp);
-  for (var i=0;i<18;i++) { var td=mkEl('td'); td.textContent=PARS[i]; pr.appendChild(td); }
-  var tdf9=mkEl('td'); tdf9.textContent=f9p; pr.appendChild(tdf9);
-  var tdb9=mkEl('td'); tdb9.textContent=b9p; pr.appendChild(tdb9);
-  var tdtt=makeEl('td','td-tot'); tdtt.textContent=par18; pr.appendChild(tdtt);
+  for (var i=0; i<TOTAL; i++) { 
+    var td=mkEl('td'); 
+    td.textContent=PARS[i]; 
+    pr.appendChild(td); 
+  }
+  var tdtt=makeEl('td','td-tot'); tdtt.textContent=parTotal; pr.appendChild(tdtt);
   var tdrd=mkEl('td'); tdrd.textContent='—'; pr.appendChild(tdrd);
-  var td19p=makeEl('td','td-tb'); td19p.textContent='TB'; pr.appendChild(td19p);
   tbody.appendChild(pr);
 
   // Player rows
   G.players.forEach(function(name, pi) {
     var row = mkEl('tr');
     var tdp = makeEl('td','td-p'); tdp.textContent = name; row.appendChild(tdp);
-    var f9=0, b9=0, tot=0;
-    for (var i=0;i<18;i++) {
+    var tot=0;
+    for (var i=0; i<TOTAL; i++) {
       var s=G.scores[pi][i], p=PARS[i], d=s-p;
       var td = mkEl('td');
       td.textContent = s;
-      if (s===1) td.className='c-ace';
-      else if (d<=-2) td.className='c-eagle';
+      if (d<=-2) td.className='c-eagle';
       else if (d===-1) td.className='c-birdie';
       else if (d===1)  td.className='c-bogey';
       else if (d===2)  td.className='c-dbl';
       else if (d>2)    td.className='c-worse';
       row.appendChild(td);
       tot+=s;
-      if (i<9) f9+=s; else b9+=s;
     }
-    var toPar = tot - par18;
+    var toPar = tot - parTotal;
     var toParStr = toPar===0?'E':toPar>0?'+'+toPar:''+toPar;
 
-    var tdf = mkEl('td'); tdf.textContent=f9; row.appendChild(tdf);
-    var tdb = mkEl('td'); tdb.textContent=b9; row.appendChild(tdb);
     var tdt = makeEl('td','td-tot'); tdt.textContent=tot; row.appendChild(tdt);
     var tdr = makeEl('td','td-rel '+(toPar<0?'under':toPar>0?'over':'')); tdr.textContent=toParStr; row.appendChild(tdr);
-    var td19 = makeEl('td','td-tb'); td19.textContent=G.scores[pi][18]; row.appendChild(td19);
     tbody.appendChild(row);
   });
   tbl.appendChild(tbody);
@@ -692,15 +744,13 @@ function buildTable() {
 
 // ── Results ──
 function finishRound() {
-  var f9p=0, b9p=0;
-  for (var i=0;i<9;i++)  f9p += PARS[i];
-  for (var i=9;i<18;i++) b9p += PARS[i];
-  var par18 = f9p + b9p;
+  var parTotal = 0;
+  for (var i=0; i<TOTAL; i++) parTotal += PARS[i];
 
   var standings = G.players.map(function(name, pi) {
     var tot=0;
-    for (var i=0;i<18;i++) tot+=G.scores[pi][i];
-    return { name:name, tot:tot, toPar:tot-par18 };
+    for (var i=0; i<TOTAL; i++) tot+=G.scores[pi][i];
+    return { name:name, tot:tot, toPar:tot-parTotal };
   });
   standings.sort(function(a,b) { return a.toPar-b.toPar; });
 
@@ -734,6 +784,14 @@ function finishRound() {
     recap.style.display = '';
   } else {
     recap.style.display = 'none';
+  }
+
+  // Show Mini Gem upsell if not already playing Mini Gem
+  var promo = el('miniGemPromo');
+  if (SELECTED_COURSE !== 'minigem') {
+    promo.style.display = '';
+  } else {
+    promo.style.display = 'none';
   }
   showScreen('results');
 }
@@ -778,6 +836,40 @@ el('fcFinishBtn').addEventListener('click',   function() { finishRound(); });
 el('viewCardBtn').addEventListener('click',   function() { showFullCard(); });
 el('newRoundBtn').addEventListener('click',   function() { newRound(); });
 el('rmBtn2').addEventListener('click',        function() { removePlayer(el('rmBtn2')); });
+el('miniGemPromoBtn').addEventListener('click', function(e) { e.preventDefault(); selectCourse('minigem'); newRound(); });
+
+// Course selection wiring
+function selectCourse(course) {
+  SELECTED_COURSE = course;
+  var btns = qAll('.course-btn');
+  for (var i=0;i<btns.length;i++) {
+    var b = btns[i];
+    if (b.getAttribute('data-course') === course) b.classList.add('active');
+    else b.classList.remove('active');
+  }
+  // update header logo (if present)
+  var logo = COURSES[course] && COURSES[course].logo ? COURSES[course].logo : '';
+  var scLogoEl = el('scLogoImg');
+  if (scLogoEl) scLogoEl.src = logo;
+  // apply branding class
+  document.body.classList.remove('brand-blue','brand-red');
+  if (course === 'minigem') document.body.classList.add('brand-red');
+  else document.body.classList.add('brand-blue');
+}
+
+var courseBtns = qAll('.course-btn');
+for (var i = 0; i < courseBtns.length; i++) {
+  (function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      var course = btn.getAttribute('data-course');
+      selectCourse(course);
+    });
+  })(courseBtns[i]);
+}
+
+// initialize selector
+selectCourse(SELECTED_COURSE);
 </script>
 </body>
 </html>
