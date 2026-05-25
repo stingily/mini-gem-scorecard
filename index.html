@@ -365,29 +365,33 @@ var COURSES = {
   par3: {
     name: 'Par-3',
     pars: [3,3,3,3,3,3,3,3,3],
-    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2026/05/Gem-Flag-Stick-White.png'
+    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2026/05/Gem-Script.png',
+    max: 10
   },
   exec: {
     name: 'Exec',
     pars: [3,4,3,3,4,3,4,3,3],
-    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2026/05/Gem-Flag-Stick-Blue.png'
+    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2026/05/GLH-Logo.png',
+    max: 10
   },
   full: {
     name: '18 Holes',
     pars: [3,3,3,3,3,3,3,3,3, 3,4,3,3,4,3,4,3,3],
-    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-18-logo.png'
+    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2026/01/Gem-Guy-scaled.png',
+    max: 10
   },
   minigem: {
     name: 'Mini Gem',
     pars: [2,2,3,3,2,2,3,3,2,3,3,4,2,3,3,3,2,3,1],
-    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png'
+    logo: 'https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png',
+    max: 7
   }
 };
 
 var SELECTED_COURSE = 'minigem';
 var PARS = COURSES[SELECTED_COURSE].pars.slice();
 var TOTAL = PARS.length;
-var MAX   = 7;
+var MAX   = COURSES[SELECTED_COURSE].max;
 var G     = { players:[], scores:[], hole:0, aces:[] };
 var pCount = 2;
 
