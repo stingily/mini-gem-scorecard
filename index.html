@@ -458,6 +458,7 @@ function startRound() {
     // Ensure PARS/TOTAL reflect selected course
     PARS = COURSES[SELECTED_COURSE].pars.slice();
     TOTAL = PARS.length;
+    MAX = COURSES[SELECTED_COURSE].max; 
     var inputs  = qAll('#playersList .player-input');
     var players = [];
     for (var i = 0; i < inputs.length; i++) {
