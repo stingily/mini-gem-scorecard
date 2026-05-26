@@ -541,7 +541,7 @@ function renderHole() {
   var parLine = el('hiParLine');
   parLine.textContent = '';
   parLine.style.color = '';
-  parLine.textContent = 'Par ' + par + '  ·  Max ' + MAX;
+  parLine.textContent = 'Par ' + par + '  ·  Max ' + COURSES[SELECTED_COURSE].max;
 
   el('nextHoleBtn').textContent = (h === TOTAL-1) ? 'Finish Round' : 'Next Hole';
 
