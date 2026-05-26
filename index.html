@@ -584,17 +584,23 @@ function refreshSD(pi) {
   var mb  = el('mb' + pi);
   var pb  = el('pb' + pi);
   if (!sd) return;
+
+  // FIX: Look up the real max for the active course dynamically
+  var currentMax = COURSES[SELECTED_COURSE].max;
+
   mb.disabled = s <= 1;
-  pb.disabled = s >= MAX;
+  pb.disabled = s >= currentMax; // Updated
 
   var numCls = '', lblCls = '', lbl = '';
   var d = s - par;
   if (d <= -2)     { lbl='Eagle';     numCls='eagle';  lblCls='eagle';  }
   else if (d===-1) { lbl='Birdie';    numCls='birdie'; lblCls='birdie'; }
-  else if (d===0)  { lbl='Par';                                          }
+  else if (d===0)  { lbl='Par';                                         }
   else if (d===1)  { lbl='Bogey';     numCls='bogey';  lblCls='bogey';  }
   else if (d===2)  { lbl='Dbl Bogey'; numCls='dbl';    lblCls='dbl';    }
-  else             { lbl = s>=MAX ? 'Max' : '+'+d; numCls='worse'; lblCls='worse'; }
+  // Updated to use currentMax
+  else             { lbl = s>=currentMax ? 'Max' : '+'+d; numCls='worse'; lblCls='worse'; }
+  
   var numEl = makeEl('div', 'sr-num' + (numCls ? ' '+numCls : ''));
   numEl.textContent = s;
   if (d < 0) {
@@ -615,7 +621,13 @@ function refreshSD(pi) {
 function adj(pi, delta) {
   var h    = G.hole;
   var prev = G.scores[pi][h];
-  var next = Math.max(1, Math.min(MAX, prev + delta));
+  
+  // FIX: Look up the real max for the active course dynamically
+  var currentMax = COURSES[SELECTED_COURSE].max;
+  
+  // Updated to use currentMax instead of MAX
+  var next = Math.max(1, Math.min(currentMax, prev + delta)); 
+  
   G.scores[pi][h] = next;
   refreshSD(pi);
   renderScoreboard();
