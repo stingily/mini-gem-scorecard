@@ -545,7 +545,7 @@ function renderHole() {
   
   // FIX: If it's the 19th hole on Mini Gem, change the display text
   if (SELECTED_COURSE === 'minigem' && h === 18) {
-    parLine.textContent = 'Sudden Death · Max ' + COURSES[SELECTED_COURSE].max;
+    parLine.textContent = 'Tie Breaker · Max ' + COURSES[SELECTED_COURSE].max;
   } else {
     parLine.textContent = 'Par ' + par + '  ·  Max ' + COURSES[SELECTED_COURSE].max;
   }
