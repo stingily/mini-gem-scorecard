@@ -542,7 +542,13 @@ function renderHole() {
   var parLine = el('hiParLine');
   parLine.textContent = '';
   parLine.style.color = '';
-  parLine.textContent = 'Par ' + par + '  ·  Max ' + COURSES[SELECTED_COURSE].max;
+  
+  // FIX: If it's the 19th hole on Mini Gem, change the display text
+  if (SELECTED_COURSE === 'minigem' && h === 18) {
+    parLine.textContent = 'Sudden Death · Max ' + COURSES[SELECTED_COURSE].max;
+  } else {
+    parLine.textContent = 'Par ' + par + '  ·  Max ' + COURSES[SELECTED_COURSE].max;
+  }
 
   el('nextHoleBtn').textContent = (h === TOTAL-1) ? 'Finish Round' : 'Next Hole';
 
@@ -703,71 +709,99 @@ function buildTable() {
   var tbl = el('scTbl');
   tbl.textContent = '';
 
-// FIX: If playing Mini Gem, limit calculations to 18 holes
-  var calcTotal = (SELECTED_COURSE === 'minigem') ? 18 : TOTAL;
+  var isMiniGem = (SELECTED_COURSE === 'minigem');
+  var calcTotal = isMiniGem ? 18 : TOTAL;
 
   var parTotal = 0;
-  for (var i = 0; i < calcTotal; i++) parTotal += PARS[i]; // Updated loop limit
+  for (var i = 0; i < calcTotal; i++) parTotal += PARS[i];
 
-  // Header row
+  // ── 1. HEADER ROW ──
   var thead = mkEl('thead');
   var hr = mkEl('tr');
-  var thp = makeEl('th','th-p'); thp.textContent = 'Player'; hr.appendChild(thp);
-  for (var i = 0; i < TOTAL; i++) { 
-    var th=mkEl('th'); 
-    th.textContent=i+1; 
+  
+  var thp = makeEl('th', 'th-p'); 
+  thp.textContent = 'Player'; 
+  hr.appendChild(thp);
+  
+  for (var i = 0; i < calcTotal; i++) { 
+    var th = mkEl('th'); 
+    th.textContent = i + 1; 
     hr.appendChild(th); 
   }
-  var tht=makeEl('th','th-tot'); tht.textContent='Total'; hr.appendChild(tht);
-  var thr=makeEl('th','th-tot'); thr.textContent='+/−'; hr.appendChild(thr);
+  
+  var tht = makeEl('th', 'th-tot'); tht.textContent = 'Total'; hr.appendChild(tht);
+  var thr = makeEl('th', 'th-tot'); thr.textContent = '+/−'; hr.appendChild(thr);
+  
+  // FIX: Change column header text from "19" to "Tie Breaker"
+  if (isMiniGem) {
+    var th19 = makeEl('th', 'th-tb'); 
+    th19.textContent = 'Tie Breaker'; 
+    hr.appendChild(th19);
+  }
   thead.appendChild(hr);
   tbl.appendChild(thead);
 
   var tbody = mkEl('tbody');
 
-  // Par row
-  var pr = makeEl('tr','par-r');
-  var tdpp = makeEl('td','td-p'); tdpp.textContent='Par'; pr.appendChild(tdpp);
-  for (var i = 0; i < TOTAL; i++) { 
-    var td=mkEl('td'); 
-    td.textContent=PARS[i]; 
+  // ── 2. PAR ROW ──
+  var pr = makeEl('tr', 'par-r');
+  var tdpp = makeEl('td', 'td-p'); tdpp.textContent = 'Par'; pr.appendChild(tdpp);
+  
+  for (var i = 0; i < calcTotal; i++) { 
+    var td = mkEl('td'); 
+    td.textContent = PARS[i]; 
     pr.appendChild(td); 
   }
-  var tdtt=makeEl('td','td-tot'); tdtt.textContent=parTotal; pr.appendChild(tdtt);
-  var tdrd=mkEl('td'); tdrd.textContent='—'; pr.appendChild(tdrd);
+  
+  var tdtt = makeEl('td', 'td-tot'); tdtt.textContent = parTotal; pr.appendChild(tdtt);
+  var tdrd = mkEl('td'); tdrd.textContent = '—'; pr.appendChild(tdrd);
+  
+  // FIX: Change Par row from "1" to a dash "—"
+  if (isMiniGem) {
+    var td19 = makeEl('td', 'td-tb'); 
+    td19.textContent = '—'; 
+    pr.appendChild(td19);
+  }
   tbody.appendChild(pr);
 
-  // Player rows
+  // ── 3. PLAYER ROWS ──
   G.players.forEach(function(name, pi) {
     var row = mkEl('tr');
-    var tdp = makeEl('td','td-p'); tdp.textContent = name; row.appendChild(tdp);
-    var tot=0;
-    for (var i = 0; i < TOTAL; i++) {
-      var s=G.scores[pi][i], p=PARS[i], d=s-p;
+    var tdp = makeEl('td', 'td-p'); tdp.textContent = name; row.appendChild(tdp);
+    
+    var tot = 0;
+    for (var i = 0; i < calcTotal; i++) {
+      var s = G.scores[pi][i], p = PARS[i], d = s - p;
       var td = mkEl('td');
       td.textContent = s;
-      if (d<=-2) td.className='c-eagle';
-      else if (d===-1) td.className='c-birdie';
-      else if (d===1)  td.className='c-bogey';
-      else if (d===2)  td.className='c-dbl';
-      else if (d>2)    td.className='c-worse';
+      if (d <= -2)      td.className = 'c-eagle';
+      else if (d === -1) td.className = 'c-birdie';
+      else if (d === 1)  td.className = 'c-bogey';
+      else if (d === 2)  td.className = 'c-dbl';
+      else if (d > 2)    td.className = 'c-worse';
       row.appendChild(td);
-      
-      // FIX: Only add to the total calculation sum if it's within the calcTotal range
-      if (i < calcTotal) {
-        tot += s;
-      }
+      tot += s;
     }
+    
     var toPar = tot - parTotal;
-    var toParStr = toPar===0?'E':toPar>0?'+'+toPar:''+toPar;
+    var toParStr = toPar === 0 ? 'E' : toPar > 0 ? '+' + toPar : '' + toPar;
 
-    var tdt = makeEl('td','td-tot'); tdt.textContent=tot; row.appendChild(tdt);
-    var tdr = makeEl('td','td-rel '+(toPar<0?'under':toPar>0?'over':'')); tdr.textContent=toParStr; row.appendChild(tdr);
+    var tdt = makeEl('td', 'td-tot'); tdt.textContent = tot; row.appendChild(tdt);
+    var tdr = makeEl('td', 'td-rel ' + (toPar < 0 ? 'under' : toPar > 0 ? 'over' : '')); tdr.textContent = toParStr; row.appendChild(tdr);
+    
+    // Append the isolated Tie Breaker box at the very end (ignoring par coloring since it has no par)
+    if (isMiniGem) {
+      var s19 = G.scores[pi][18];
+      var td19 = makeEl('td', 'td-tb');
+      td19.textContent = s19;
+      row.appendChild(td19);
+    }
+    
     tbody.appendChild(row);
   });
   tbl.appendChild(tbody);
 }
-
+  
 // ── Results ──
 function finishRound() {
   // FIX: Limit final standings math to 18 holes on Mini Gem
