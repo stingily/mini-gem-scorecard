@@ -645,15 +645,17 @@ function advanceHole()  {
 
 // ── Scoreboard ──
 function renderScoreboard() {
+  // FIX: If playing Mini Gem, only calculate totals up to 18 holes
+  var calcTotal = (SELECTED_COURSE === 'minigem') ? 18 : TOTAL;
   var parTotal = 0;
   for (var i=0; i<TOTAL; i++) parTotal += PARS[i];
 
   var standings = G.players.map(function(name, pi) {
-    var scoredThru = Math.min(G.hole, TOTAL-1);
+    var scoredThru = Math.min(G.hole, calcTotal - 1); // Updated loop limit
     var runTot = 0;
-    for (var i=0; i<=scoredThru; i++) runTot += G.scores[pi][i];
+    for (var i = 0; i <= scoredThru; i++) runTot += G.scores[pi][i];
     var totScore = 0;
-    for (var i=0; i<TOTAL; i++) totScore += G.scores[pi][i];
+    for (var i = 0; i < calcTotal; i++) totScore += G.scores[pi][i]; // Updated loop limit
     return { name: name, runTot: runTot, toPar: totScore - parTotal, order: pi };
   });
 
@@ -701,14 +703,17 @@ function buildTable() {
   var tbl = el('scTbl');
   tbl.textContent = '';
 
+// FIX: If playing Mini Gem, limit calculations to 18 holes
+  var calcTotal = (SELECTED_COURSE === 'minigem') ? 18 : TOTAL;
+
   var parTotal = 0;
-  for (var i=0; i<TOTAL; i++) parTotal += PARS[i];
+  for (var i = 0; i < calcTotal; i++) parTotal += PARS[i]; // Updated loop limit
 
   // Header row
   var thead = mkEl('thead');
   var hr = mkEl('tr');
   var thp = makeEl('th','th-p'); thp.textContent = 'Player'; hr.appendChild(thp);
-  for (var i=0; i<TOTAL; i++) { 
+  for (var i = 0; i < TOTAL; i++) { 
     var th=mkEl('th'); 
     th.textContent=i+1; 
     hr.appendChild(th); 
@@ -723,7 +728,7 @@ function buildTable() {
   // Par row
   var pr = makeEl('tr','par-r');
   var tdpp = makeEl('td','td-p'); tdpp.textContent='Par'; pr.appendChild(tdpp);
-  for (var i=0; i<TOTAL; i++) { 
+  for (var i = 0; i < TOTAL; i++) { 
     var td=mkEl('td'); 
     td.textContent=PARS[i]; 
     pr.appendChild(td); 
@@ -737,7 +742,7 @@ function buildTable() {
     var row = mkEl('tr');
     var tdp = makeEl('td','td-p'); tdp.textContent = name; row.appendChild(tdp);
     var tot=0;
-    for (var i=0; i<TOTAL; i++) {
+    for (var i = 0; i < TOTAL; i++) {
       var s=G.scores[pi][i], p=PARS[i], d=s-p;
       var td = mkEl('td');
       td.textContent = s;
@@ -747,7 +752,11 @@ function buildTable() {
       else if (d===2)  td.className='c-dbl';
       else if (d>2)    td.className='c-worse';
       row.appendChild(td);
-      tot+=s;
+      
+      // FIX: Only add to the total calculation sum if it's within the calcTotal range
+      if (i < calcTotal) {
+        tot += s;
+      }
     }
     var toPar = tot - parTotal;
     var toParStr = toPar===0?'E':toPar>0?'+'+toPar:''+toPar;
@@ -761,12 +770,15 @@ function buildTable() {
 
 // ── Results ──
 function finishRound() {
+  // FIX: Limit final standings math to 18 holes on Mini Gem
+  var calcTotal = (SELECTED_COURSE === 'minigem') ? 18 : TOTAL;
+
   var parTotal = 0;
-  for (var i=0; i<TOTAL; i++) parTotal += PARS[i];
+  for (var i = 0; i < calcTotal; i++) parTotal += PARS[i]; // Updated loop limit
 
   var standings = G.players.map(function(name, pi) {
     var tot=0;
-    for (var i=0; i<TOTAL; i++) tot+=G.scores[pi][i];
+    for (var i = 0; i < calcTotal; i++) tot += G.scores[pi][i]; // Updated loop limit
     return { name:name, tot:tot, toPar:tot-parTotal };
   });
   standings.sort(function(a,b) { return a.toPar-b.toPar; });
