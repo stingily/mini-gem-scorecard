@@ -651,18 +651,40 @@ function advanceHole()  {
 
 // ── Scoreboard ──
 function renderScoreboard() {
-  // FIX: If playing Mini Gem, only calculate totals up to 18 holes
+  // If playing Mini Gem, only calculate totals up to 18 holes
   var calcTotal = (SELECTED_COURSE === 'minigem') ? 18 : TOTAL;
-  var parTotal = 0;
-  for (var i=0; i<TOTAL; i++) parTotal += PARS[i];
 
   var standings = G.players.map(function(name, pi) {
-    var scoredThru = Math.min(G.hole, calcTotal - 1); // Updated loop limit
+    // FIX 1: Determine exactly how many holes have been played/completed so far
+    var holesPlayed = Math.min(G.hole + 1, calcTotal); 
+    
+    // FIX 2: Calculate the course Par total JUST for the holes played so far
+    var parTotalToCurrentHole = 0;
+    for (var i = 0; i < holesPlayed; i++) {
+      parTotalToCurrentHole += PARS[i];
+    }
+
+    // FIX 3: Calculate the player's running score total for those same holes
     var runTot = 0;
-    for (var i = 0; i <= scoredThru; i++) runTot += G.scores[pi][i];
+    for (var i = 0; i < holesPlayed; i++) {
+      runTot += G.scores[pi][i];
+    }
+    
+    // Calculate final overall potential score
     var totScore = 0;
-    for (var i = 0; i < calcTotal; i++) totScore += G.scores[pi][i]; // Updated loop limit
-    return { name: name, runTot: runTot, toPar: totScore - parTotal, order: pi };
+    for (var i = 0; i < calcTotal; i++) {
+      totScore += G.scores[pi][i];
+    }
+    
+    // FIX 4: Compare running totals directly to get an accurate +/- to Par
+    var runningToPar = runTot - parTotalToCurrentHole;
+
+    return { 
+      name: name, 
+      runTot: runTot, 
+      toPar: runningToPar, // Use the targeted running calculation
+      order: pi 
+    };
   });
 
   var c = el('sbPlayers');
@@ -670,7 +692,7 @@ function renderScoreboard() {
   standings.forEach(function(s, rank) {
     var wrap = makeEl('div', 'sb-player' + (rank===0 ? ' leading' : ''));
     var ini  = makeEl('div', 'sb-initials');  ini.textContent  = s.name;
-    var tot  = makeEl('div', 'sb-total');     tot.textContent  = s.runTot;
+    var tot  = makeEl('div', 'sb-total');      tot.textContent  = s.runTot;
     
     if (s.toPar < 0) {
       tot.style.color = '#bf2d1e';
