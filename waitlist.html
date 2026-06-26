@@ -307,17 +307,16 @@ function MiniGemWaitlist() {
     if (queue.length === 0) return;
     var next = queue[0];
     var id = next.id;
-    var rest = Object.assign({}, next);
-    delete rest.id;
+    var payload = { name: next.name, size: next.size, note: next.note || "" };
     if (CONFIGURED && db) {
       db.ref("nowPlaying")
-        .set(Object.assign({}, rest, { startedAt: firebase.database.ServerValue.TIMESTAMP }))
+        .set(Object.assign({}, payload, { startedAt: firebase.database.ServerValue.TIMESTAMP }))
         .catch(function () { setStorageError("Couldn't update the tee status."); });
       db.ref("queue/" + id)
         .remove()
         .catch(function () { setStorageError("Couldn't update the list."); });
     } else {
-      setNowPlaying(Object.assign({}, rest, { startedAt: Date.now() }));
+      setNowPlaying(Object.assign({}, payload, { startedAt: Date.now() }));
       setQueue(function (q) { return q.slice(1); });
     }
   }
