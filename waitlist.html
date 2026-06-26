@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Mini Gem — Waitlist</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; }
+  #root { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+
+/* ============================================================
+   1) PASTE YOUR FIREBASE CONFIG BELOW
+   Firebase console -> Project settings -> General -> Your apps -> SDK setup and config
+   Make sure Realtime Database is enabled (not just Firestore) and
+   databaseURL is set, or the listeners below won't connect.
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDshoGBi2po_EjcvTFqSqqvFstTSzumObE",
+  authDomain: "mini-gem-waitlist.firebaseapp.com",
+  databaseURL: "https://mini-gem-waitlist-default-rtdb.firebaseio.com",
+  projectId: "mini-gem-waitlist",
+  storageBucket: "mini-gem-waitlist.firebasestorage.app",
+  messagingSenderId: "756342821499",
+  appId: "1:756342821499:web:b8bda57683e3743b9e08de",
+  measurementId: "G-VC3F5NFLYS"
+};
+
+// Change this before putting the app on a real device at the course.
+// Remember: this is friction for casual players, not real security.
+// Real protection lives in the Realtime Database security rules.
+const STAFF_PIN = "2580";
+
+const LOGO_URL =
+  "https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png";
+
+const CONFIGURED = !!(firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith("PASTE"));
+let db = null;
+if (CONFIGURED) {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+  } catch (e) {
+    console.error("Firebase init failed:", e);
+  }
+}
+
+const { useState, useEffect, useCallback, useRef } = React;
+
+function formatElapsed(startedAt, now) {
+  const diff = Math.max(0, now - (startedAt || now));
+  const m = Math.floor(diff / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function timeAgo(ts, now) {
+  const diffMin = Math.floor((now - ts) / 60000);
+  if (diffMin <= 0) return "just now";
+  if (diffMin === 1) return "1 min ago";
+  return `${diffMin} min ago`;
+}
+
+function uid() {
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// Bigger groups take longer: every additional bracket of 6 players adds
+// another `minutesPerBracket` to the hole. 1-6 players -> 1x, 7-12 -> 2x, etc.
+function groupMinutes(size, minutesPerBracket) {
+  return minutesPerBracket * Math.ceil(size / 6);
+}
+
+function MiniGemWaitlist() {
+  const [queue, setQueue] = useState([]);
+  const [nowPlaying, setNowPlaying] = useState(null);
+  const [minutesPerGroup, setMinutesPerGroup] = useState(5);
+  const [loading, setLoading] = useState(true);
+  const [storageError, setStorageError] = useState(null);
+
+  const [tick, setTick] = useState(0);
+
+  const [joinName, setJoinName] = useState("");
+  const [joinSize, setJoinSize] = useState(2);
+  const [joinNote, setJoinNote] = useState("");
+  const [joinedId, setJoinedId] = useState(null);
+  const [joinError, setJoinError] = useState("");
+
+  const [isStaff, setIsStaff] = useState(false);
+  const [showPinEntry, setShowPinEntry] = useState(false);
+  const [pinValue, setPinValue] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const mounted = useRef(true);
+
+  // Live sync with Firebase Realtime Database. Falls back to local-only
+  // state (nothing shared, nothing saved) if firebaseConfig isn't filled in.
+  useEffect(() => {
+    mounted.current = true;
+    const everySecond = setInterval(() => setTick((t) => t + 1), 1000);
+
+    if (!CONFIGURED || !db) {
+      setLoading(false);
+      return () => {
+        mounted.current = false;
+        clearInterval(everySecond);
+      };
+    }
+
+    const queueRef = db.ref("queue");
+    const nowPlayingRef = db.ref("nowPlaying");
+    const settingsRef = db.ref("settings/minutesPerGroup");
+
+    const onQueue = (snap) => {
+      if (!mounted.current) return;
+      const val = snap.val() || {};
+      const arr = Object.entries(val).map(([id, v]) => ({ id, ...v }));
+      arr.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+      setQueue(arr);
+      setLoading(false);
+      setStorageError(null);
+    };
+    const onNowPlaying = (snap) => {
+      if (!mounted.current) return;
+      setNowPlaying(snap.val());
+    };
+    const onSettings = (snap) => {
+      if (!mounted.current) return;
+      const v = snap.val();
+      if (typeof v === "number") setMinutesPerGroup(v);
+    };
+    const onErr = () => {
+      if (!mounted.current) return;
+      setStorageError("Lost connection to the database. Showing the last known list.");
+      setLoading(false);
+    };
+
+    queueRef.on("value", onQueue, onErr);
+    nowPlayingRef.on("value", onNowPlaying, onErr);
+    settingsRef.on("value", onSettings, onErr);
+
+    return () => {
+      mounted.current = false;
+      clearInterval(everySecond);
+      queueRef.off("value", onQueue);
+      nowPlayingRef.off("value", onNowPlaying);
+      settingsRef.off("value", onSettings);
+    };
+  }, []);
+
+  const handleJoin = () => {
+    const name = joinName.trim();
+    if (!name) {
+      setJoinError("Enter a name for the list.");
+      return;
+    }
+    if (name.length > 40) {
+      setJoinError("Keep the name under 40 characters.");
+      return;
+    }
+    setJoinError("");
+    const note = joinNote.trim().slice(0, 80);
+
+    if (CONFIGURED && db) {
+      const entry = {
+        name,
+        size: joinSize,
+        note,
+        addedAt: firebase.database.ServerValue.TIMESTAMP,
+      };
+      const newRef = db.ref("queue").push(entry);
+      setJoinedId(newRef.key);
+      Promise.resolve(newRef).catch(() =>
+        setStorageError("Couldn't save your spot. Check your connection and try again.")
+      );
+    } else {
+      const entry = { id: uid(), name, size: joinSize, note, addedAt: Date.now() };
+      setQueue((q) => [...q, entry]);
+      setJoinedId(entry.id);
+    }
+    setJoinName("");
+    setJoinNote("");
+    setJoinSize(2);
+  };
+
+  const callNext = () => {
+    if (queue.length === 0) return;
+    const next = queue[0];
+    const { id, ...rest } = next;
+    if (CONFIGURED && db) {
+      db.ref("nowPlaying")
+        .set({ ...rest, startedAt: firebase.database.ServerValue.TIMESTAMP })
+        .catch(() => setStorageError("Couldn't update the tee status."));
+      db.ref("queue/" + id)
+        .remove()
+        .catch(() => setStorageError("Couldn't update the list."));
+    } else {
+      setNowPlaying({ ...rest, startedAt: Date.now() });
+      setQueue((q) => q.slice(1));
+    }
+  };
+
+  const finishNow = () => {
+    if (CONFIGURED && db) {
+      db.ref("nowPlaying").remove().catch(() => setStorageError("Couldn't clear the tee status."));
+    } else {
+      setNowPlaying(null);
+    }
+  };
+
+  const removeFromQueue = (id) => {
+    if (CONFIGURED && db) {
+      db.ref("queue/" + id).remove().catch(() => setStorageError("Couldn't update the list."));
+    } else {
+      setQueue((q) => q.filter((p) => p.id !== id));
+    }
+  };
+
+  const resetEverything = () => {
+    if (CONFIGURED && db) {
+      db.ref("queue").remove();
+      db.ref("nowPlaying").remove();
+    } else {
+      setQueue([]);
+      setNowPlaying(null);
+    }
+    setConfirmReset(false);
+  };
+
+  const persistSettings = (mins) => {
+    setMinutesPerGroup(mins);
+    if (CONFIGURED && db) {
+      db.ref("settings/minutesPerGroup")
+        .set(mins)
+        .catch(() => setStorageError("Couldn't save settings."));
+    }
+  };
+
+  const submitPin = () => {
+    if (pinValue === STAFF_PIN) {
+      setIsStaff(true);
+      setShowPinEntry(false);
+      setPinValue("");
+      setPinError(false);
+    } else {
+      setPinError(true);
+    }
+  };
+
+  const elapsedMin = nowPlaying ? (Date.now() - nowPlaying.startedAt) / 60000 : 0;
+  const remainingCurrent = nowPlaying
+    ? Math.max(groupMinutes(nowPlaying.size, minutesPerGroup) - elapsedMin, 1)
+    : 0;
+
+  const estimateFor = (index) => {
+    if (!nowPlaying && index === 0) return 0;
+    let total = nowPlaying ? remainingCurrent : 0;
+    for (let k = 0; k < index; k++) {
+      total += groupMinutes(queue[k].size, minutesPerGroup);
+    }
+    return Math.round(total);
+  };
+
+  return (
+    <div className="shell">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+          --bg: #FFFFFF;
+          --ink: #1A1A1A;
+          --label: #9A968F;
+          --muted: #8A8170;
+          --pill: #F2F1EE;
+          --pill-border: #E8E5DF;
+          --brick: #B8432E;
+          --brick-dark: #9C3624;
+          --score-blue: #E9EEFB;
+          --divider: #ECEAE6;
+        }
+        * { box-sizing: border-box; }
+        .shell {
+          font-family: 'Inter', sans-serif;
+          color: var(--ink);
+          background: var(--bg);
+          min-height: 100%;
+          display: flex;
+          justify-content: center;
+          padding: 0;
+        }
+        .sheet {
+          width: 100%;
+          max-width: 560px;
+          background: var(--bg);
+          min-height: 100vh;
+        }
+        .topbar {
+          height: 5px;
+          background: var(--brick);
+        }
+        .header {
+          padding: 20px 22px 18px;
+        }
+        .brand-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .logo-img {
+          height: 52px;
+          width: auto;
+          display: block;
+          flex-shrink: 0;
+        }
+        .wordmark {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 1.7rem;
+          letter-spacing: 0.03em;
+          line-height: 1;
+          color: var(--ink);
+        }
+        .subtitle {
+          font-size: 0.78rem;
+          color: var(--muted);
+          margin-top: 4px;
+          letter-spacing: 0.01em;
+        }
+        .staff-btn {
+          background: var(--pill);
+          border: 1px solid var(--pill-border);
+          color: var(--ink);
+          font-size: 0.7rem;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          padding: 8px 14px;
+          border-radius: 12px;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        button:focus-visible, input:focus-visible {
+          outline: 2px solid var(--brick);
+          outline-offset: 2px;
+        }
+        .pin-row {
+          margin-top: 14px;
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .pin-row input {
+          background: var(--pill);
+          border: 1px solid var(--pill-border);
+          border-radius: 12px;
+          padding: 10px 12px;
+          font-family: 'Inter', sans-serif;
+          letter-spacing: 0.2em;
+          width: 100px;
+          font-size: 0.95rem;
+          color: var(--ink);
+        }
+        .pin-row .small-btn {
+          background: var(--brick);
+          color: #fff;
+          border: none;
+          padding: 10px 14px;
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 0.75rem;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+        .pin-error {
+          color: var(--brick);
+          font-size: 0.75rem;
+          margin-top: 6px;
+        }
+
+        .section {
+          padding: 20px 22px;
+          border-bottom: 1px solid var(--divider);
+        }
+        .section-title {
+          font-family: 'Inter', sans-serif;
+          font-weight: 700;
+          font-size: 0.72rem;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--label);
+          margin: 0 0 14px;
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+        }
+        .section-title .meta {
+          font-weight: 500;
+          letter-spacing: 0;
+          text-transform: none;
+          font-size: 0.74rem;
+          color: var(--muted);
+        }
+
+        .tee-card {
+          background: var(--score-blue);
+          border-radius: 18px;
+          padding: 20px 22px;
+          color: var(--ink);
+        }
+        .tee-empty {
+          font-size: 0.92rem;
+          color: var(--muted);
+        }
+        .tee-clock {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: clamp(2.6rem, 10vw, 3.4rem);
+          color: var(--ink);
+          line-height: 1;
+          letter-spacing: 0.03em;
+        }
+        .tee-name {
+          margin-top: 4px;
+          font-size: 1.05rem;
+          font-weight: 700;
+        }
+        .tee-sub {
+          font-size: 0.8rem;
+          color: var(--muted);
+          margin-top: 2px;
+        }
+        .tee-actions {
+          margin-top: 16px;
+          display: flex;
+          gap: 10px;
+        }
+
+        .btn {
+          font-family: 'Inter', sans-serif;
+          font-weight: 700;
+          font-size: 0.83rem;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+          border-radius: 14px;
+          padding: 13px 18px;
+          border: none;
+          cursor: pointer;
+        }
+        .btn-flag { background: var(--brick); color: #fff; }
+        .btn-flag:hover { background: var(--brick-dark); }
+        .btn-flag:disabled { background: #DCD8D0; color: #fff; cursor: not-allowed; }
+        .btn-ghost {
+          background: transparent;
+          color: var(--ink);
+          border: 1px solid var(--pill-border);
+        }
+        .btn-outline {
+          background: transparent;
+          color: var(--brick);
+          border: 1.5px solid var(--brick);
+        }
+
+        .queue-empty {
+          font-size: 0.9rem;
+          color: var(--muted);
+          padding: 6px 2px 2px;
+        }
+        .queue-row {
+          display: grid;
+          grid-template-columns: 34px 1fr auto auto;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 4px;
+          border-bottom: 1px solid var(--divider);
+        }
+        .queue-row:last-child { border-bottom: none; }
+        .queue-row.mine {
+          background: rgba(184,67,46,0.07);
+          border-radius: 12px;
+        }
+        .queue-num {
+          font-family: 'Bebas Neue', sans-serif;
+          color: var(--ink);
+          font-size: 1.3rem;
+        }
+        .queue-name {
+          font-weight: 700;
+          font-size: 0.92rem;
+        }
+        .queue-name .you-tag {
+          font-size: 0.65rem;
+          color: var(--brick);
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          margin-left: 6px;
+        }
+        .queue-meta {
+          font-size: 0.74rem;
+          color: var(--muted);
+          margin-top: 1px;
+        }
+        .queue-wait {
+          font-family: 'Inter', sans-serif;
+          font-weight: 600;
+          font-size: 0.8rem;
+          color: var(--ink);
+          text-align: right;
+          white-space: nowrap;
+        }
+        .queue-remove {
+          background: none;
+          border: none;
+          color: #C9C4BC;
+          font-size: 1rem;
+          cursor: pointer;
+          padding: 4px;
+          line-height: 1;
+        }
+        .queue-remove:hover { color: var(--brick); }
+
+        .join-error {
+          color: var(--brick);
+          font-size: 0.8rem;
+          margin-bottom: 10px;
+        }
+        .field-label {
+          font-size: 0.7rem;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--muted);
+          font-weight: 700;
+          margin-bottom: 8px;
+          display: block;
+        }
+        .underline-input {
+          width: 100%;
+          border: 1.5px solid var(--pill-border);
+          border-radius: 14px;
+          background: var(--pill);
+          font-family: 'Inter', sans-serif;
+          font-size: 1rem;
+          padding: 13px 14px;
+          color: var(--ink);
+        }
+        .underline-input::placeholder { color: #B3ADA3; }
+        .underline-input:focus {
+          border-color: var(--brick);
+          background: #fff;
+          outline: none;
+        }
+        .field { margin-bottom: 18px; }
+        .size-hint {
+          font-size: 0.74rem;
+          color: var(--muted);
+          margin-top: 8px;
+        }
+        .stepper {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+        .stepper button {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          border: none;
+          background: var(--pill);
+          color: var(--ink);
+          font-size: 1.1rem;
+          font-weight: 700;
+          cursor: pointer;
+          line-height: 1;
+        }
+        .stepper button:disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
+        }
+        .stepper .count {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 1.3rem;
+          min-width: 20px;
+          text-align: center;
+        }
+        .join-confirm {
+          margin-top: 12px;
+          font-size: 0.85rem;
+          color: var(--brick);
+          font-weight: 700;
+        }
+
+        .staff-panel {
+          background: var(--pill);
+          border-radius: 16px;
+          padding: 16px 18px;
+          margin-top: 4px;
+        }
+        .staff-panel .row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
+        .staff-panel .row:last-child { margin-bottom: 0; }
+        .staff-label {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: var(--ink);
+        }
+        .reset-confirm {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .reset-confirm span {
+          font-size: 0.78rem;
+          color: var(--brick);
+        }
+
+        .staff-entry .staff-btn {
+          margin-top: 2px;
+        }
+        .exit-link {
+          background: none;
+          border: none;
+          color: var(--brick);
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: underline;
+          padding: 0;
+          font-size: 0.74rem;
+          font-family: 'Inter', sans-serif;
+        }
+
+        .config-banner {
+          background: #FCEFC7;
+          color: #6B4E16;
+          font-size: 0.8rem;
+          padding: 12px 16px;
+          text-align: center;
+          line-height: 1.5;
+        }
+        .config-banner code {
+          background: rgba(0,0,0,0.08);
+          padding: 1px 5px;
+          border-radius: 4px;
+        }
+        .error-banner {
+          background: #F7DCD3;
+          color: #7A2E1C;
+          font-size: 0.8rem;
+          padding: 10px 16px;
+          text-align: center;
+        }
+        .loading-banner {
+          padding: 40px 22px;
+          text-align: center;
+          color: var(--muted);
+          font-size: 0.9rem;
+        }
+        .footer-note {
+          padding: 18px 22px 34px;
+          font-size: 0.72rem;
+          color: #B3ADA3;
+          text-align: center;
+        }
+      `}</style>
+
+      <div className="sheet">
+        <div className="topbar" />
+        <div className="header">
+          <div className="brand-row">
+            <img src={LOGO_URL} alt="Mini Gem" className="logo-img" />
+            <div>
+              <div className="wordmark">WAITLIST</div>
+              <div className="subtitle">Gem Lake Hills · White Bear Lake, MN</div>
+            </div>
+          </div>
+        </div>
+
+        {!CONFIGURED && (
+          <div className="config-banner">
+            Demo mode — Firebase isn't connected yet. Edit <code>firebaseConfig</code> near the
+            top of this file, then refresh. Until then, nothing here is shared or saved.
+          </div>
+        )}
+        {storageError && <div className="error-banner">{storageError}</div>}
+
+        {loading ? (
+          <div className="loading-banner">Reading the tee sheet…</div>
+        ) : (
+          <>
+            <div className="section">
+              <div className="section-title">On the tee</div>
+              <div className="tee-card">
+                {nowPlaying ? (
+                  <>
+                    <div className="tee-clock">{formatElapsed(nowPlaying.startedAt, Date.now())}</div>
+                    <div className="tee-name">
+                      {nowPlaying.name} · {nowPlaying.size} {nowPlaying.size === 1 ? "player" : "players"}
+                    </div>
+                    {nowPlaying.note && <div className="tee-sub">{nowPlaying.note}</div>}
+                    {isStaff && (
+                      <div className="tee-actions">
+                        <button className="btn btn-flag" onClick={finishNow}>
+                          Finish &amp; clear
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="tee-empty">No one's on the tee right now.</div>
+                    {isStaff && (
+                      <div className="tee-actions">
+                        <button
+                          className="btn btn-flag"
+                          onClick={callNext}
+                          disabled={queue.length === 0}
+                        >
+                          Call next
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="section">
+              <div className="section-title">
+                The list
+                <span className="meta">~{minutesPerGroup} min per 6 players</span>
+              </div>
+              {queue.length === 0 ? (
+                <div className="queue-empty">The tee sheet's open — be the first to join.</div>
+              ) : (
+                <div>
+                  {queue.map((p, i) => {
+                    const est = estimateFor(i);
+                    return (
+                      <div className={`queue-row ${p.id === joinedId ? "mine" : ""}`} key={p.id}>
+                        <div className="queue-num">{String(i + 1).padStart(2, "0")}</div>
+                        <div>
+                          <div className="queue-name">
+                            {p.name}
+                            {p.id === joinedId && <span className="you-tag">You</span>}
+                          </div>
+                          <div className="queue-meta">
+                            {p.size} {p.size === 1 ? "player" : "players"}
+                            {p.note ? ` · ${p.note}` : ""} · added {timeAgo(p.addedAt, Date.now())}
+                          </div>
+                        </div>
+                        <div className="queue-wait">{est <= 0 ? "Up next" : `~${est} min`}</div>
+                        {isStaff ? (
+                          <button
+                            className="queue-remove"
+                            aria-label={`Remove ${p.name}`}
+                            onClick={() => removeFromQueue(p.id)}
+                          >
+                            ✕
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {isStaff && queue.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <button className="btn btn-outline" onClick={callNext}>
+                    Call next
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="section">
+              <div className="section-title">Join the list</div>
+              {joinError && <div className="join-error">{joinError}</div>}
+              <div className="field">
+                <label className="field-label">Name</label>
+                <input
+                  className="underline-input"
+                  placeholder="e.g. Wang party"
+                  value={joinName}
+                  onChange={(e) => {
+                    setJoinName(e.target.value);
+                    setJoinedId(null);
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                  maxLength={40}
+                />
+              </div>
+              <div className="field">
+                <label className="field-label">Party size</label>
+                <div className="stepper">
+                  <button
+                    onClick={() => setJoinSize((s) => Math.max(1, s - 1))}
+                    disabled={joinSize <= 1}
+                    aria-label="Decrease party size"
+                  >
+                    −
+                  </button>
+                  <span className="count">{joinSize}</span>
+                  <button
+                    onClick={() => setJoinSize((s) => Math.min(20, s + 1))}
+                    disabled={joinSize >= 20}
+                    aria-label="Increase party size"
+                  >
+                    +
+                  </button>
+                </div>
+                <div className="size-hint">
+                  Max 20 per group. Bigger group? Submit it as two separate entries on the list.
+                </div>
+              </div>
+              <div className="field">
+                <label className="field-label">Note (optional)</label>
+                <input
+                  className="underline-input"
+                  placeholder="e.g. ask for Pat, cart #3"
+                  value={joinNote}
+                  onChange={(e) => setJoinNote(e.target.value)}
+                  maxLength={80}
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                />
+              </div>
+              <button className="btn btn-flag" onClick={handleJoin}>
+                Join the list →
+              </button>
+              {joinedId && queue.some((p) => p.id === joinedId) && (
+                <div className="join-confirm">
+                  You're on the list — spot #{queue.findIndex((p) => p.id === joinedId) + 1}.
+                </div>
+              )}
+            </div>
+
+            {isStaff ? (
+              <div className="section">
+                <div className="section-title">
+                  Staff settings
+                  <span className="meta">
+                    <button className="exit-link" onClick={() => setIsStaff(false)}>
+                      Exit staff mode
+                    </button>
+                  </span>
+                </div>
+                <div className="staff-panel">
+                  <div className="row">
+                    <span className="staff-label">Minutes per 6 players</span>
+                    <div className="stepper">
+                      <button
+                        onClick={() => persistSettings(Math.max(2, minutesPerGroup - 1))}
+                        aria-label="Decrease minutes per group"
+                      >
+                        −
+                      </button>
+                      <span className="count">{minutesPerGroup}</span>
+                      <button
+                        onClick={() => persistSettings(Math.min(30, minutesPerGroup + 1))}
+                        aria-label="Increase minutes per group"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div className="row">
+                    <span className="staff-label">Reset list &amp; tee status</span>
+                    {confirmReset ? (
+                      <div className="reset-confirm">
+                        <span>Sure?</span>
+                        <button className="btn btn-flag" onClick={resetEverything}>
+                          Yes, reset
+                        </button>
+                        <button className="btn btn-ghost" onClick={() => setConfirmReset(false)}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="btn btn-outline" onClick={() => setConfirmReset(true)}>
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="section staff-entry">
+                <div className="section-title">Staff</div>
+                {!showPinEntry ? (
+                  <button className="staff-btn" onClick={() => setShowPinEntry(true)}>
+                    Staff sign-in
+                  </button>
+                ) : (
+                  <div>
+                    <div className="pin-row">
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        placeholder="PIN"
+                        value={pinValue}
+                        onChange={(e) => {
+                          setPinValue(e.target.value);
+                          setPinError(false);
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && submitPin()}
+                        autoFocus
+                      />
+                      <button className="small-btn" onClick={submitPin}>
+                        Enter
+                      </button>
+                      <button
+                        className="staff-btn"
+                        onClick={() => {
+                          setShowPinEntry(false);
+                          setPinValue("");
+                          setPinError(false);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {pinError && <div className="pin-error">That's not the staff PIN.</div>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="footer-note">
+              {CONFIGURED
+                ? "This list is shared — everyone viewing this page sees the same queue."
+                : "Demo mode — see the banner above. Changes here won't be saved or shared."}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<MiniGemWaitlist />);
+</script>
+</body>
+</html>
