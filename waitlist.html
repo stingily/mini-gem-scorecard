@@ -74,6 +74,11 @@ function uid() {
   return "local-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
 
+function todayString() {
+  var d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
 // Bigger groups take longer: every additional bracket of 6 players adds
 // another `minutesPerBracket` to the hole. 1-6 players -> 1x, 7-12 -> 2x, etc.
 function groupMinutes(size, minutesPerBracket) {
@@ -228,6 +233,23 @@ function MiniGemWaitlist() {
     var queueRef = db.ref("queue");
     var nowPlayingRef = db.ref("nowPlaying");
     var settingsRef = db.ref("settings/minutesPerGroup");
+    var lastResetRef = db.ref("settings/lastResetDate");
+
+    // Whenever the page loads, check whether it's a new calendar day since
+    // the list was last touched. If so, clear the queue and tee status —
+    // this is the free, no-backend stand-in for a real midnight cron job.
+    lastResetRef.once("value").then(function (snap) {
+      var today = todayString();
+      var stored = snap.val();
+      if (stored !== today) {
+        queueRef.remove();
+        nowPlayingRef.remove();
+        lastResetRef.set(today);
+      }
+    }).catch(function () {
+      // Non-critical — if this check fails, the list just won't auto-reset
+      // until the next successful page load. Nothing else depends on it.
+    });
 
     function onQueue(snap) {
       if (!mounted.current) return;
