@@ -38,6 +38,7 @@ var STAFF_PIN = "2730";
 
 var LOGO_URL =
   "https://gemlakehillsgolf.com/wp-content/uploads/2025/10/GLH-minigem-logovertical-239x300.png";
+var SCORECARD_URL = "https://minigem-score.gemlakehillsgolf.com/";
 
 var CONFIGURED = !!(firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf("PASTE") !== 0);
 var db = null;
@@ -123,6 +124,8 @@ var CSS = "\
   .tee-name { margin-top: 4px; font-size: 1.05rem; font-weight: 700; }\
   .tee-sub { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }\
   .tee-actions { margin-top: 16px; display: flex; gap: 10px; }\
+  .tee-scorecard-link { display: inline-block; margin-top: 10px; font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 700; color: var(--brick); text-decoration: none; border-bottom: 1.5px solid var(--brick); padding-bottom: 1px; }\
+  .tee-scorecard-link:hover { color: var(--brick-dark); border-bottom-color: var(--brick-dark); }\
   .btn { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 0.83rem; letter-spacing: 0.03em; text-transform: uppercase; border-radius: 14px; padding: 13px 18px; border: none; cursor: pointer; }\
   .btn-flag { background: var(--brick); color: #fff; }\
   .btn-flag:hover { background: var(--brick-dark); }\
@@ -461,6 +464,15 @@ function MiniGemWaitlist() {
       if (nowPlaying.note) {
         teeInner.push(e('div', { className: 'tee-sub', key: 'note' }, nowPlaying.note));
       }
+      teeInner.push(
+        e('a', {
+          className: 'tee-scorecard-link',
+          href: SCORECARD_URL,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          key: 'scorecardlink'
+        }, 'Start your scorecard →')
+      );
       teeInner = teeInner.concat(teeActionsChildren);
     } else {
       teeInner = [e('div', { className: 'tee-empty', key: 'empty' }, "No one's on the tee right now.")];
