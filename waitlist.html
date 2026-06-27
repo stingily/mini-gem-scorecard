@@ -328,16 +328,16 @@ function MiniGemWaitlist() {
 
   function handleJoin() {
     var name = joinName.trim();
+    if (!joinSize) {
+      setJoinError("Select a party size.");
+      return;
+    }
     if (!name) {
       setJoinError("Enter a name for the list.");
       return;
     }
     if (name.length > 40) {
       setJoinError("Keep the name under 40 characters.");
-      return;
-    }
-    if (!joinSize) {
-      setJoinError("Select a party size.");
       return;
     }
     setJoinError("");
@@ -661,7 +661,7 @@ function MiniGemWaitlist() {
 
       var listGroups = [
         e('div', { className: 'practice-green-group', key: 'practicegroup' },
-          e('div', { className: 'practice-green-label' }, 'On the practice green'),
+          e('div', { className: 'practice-green-label' }, 'Get ready on the practice green'),
           practiceRows
         )
       ];
@@ -716,19 +716,6 @@ function MiniGemWaitlist() {
         joinChildren.push(e('div', { className: 'join-error', key: 'err' }, joinError));
       }
       joinChildren.push(
-        e('div', { className: 'field', key: 'namefield' },
-          e('label', { className: 'field-label' }, 'Name'),
-          e('input', {
-            className: 'underline-input',
-            placeholder: 'e.g. Wang party',
-            value: joinName,
-            onChange: function (ev) { setJoinName(ev.target.value); setJoinedId(null); },
-            onKeyDown: function (ev) { if (ev.key === 'Enter') handleJoin(); },
-            maxLength: 40
-          })
-        )
-      );
-      joinChildren.push(
         e('div', { className: 'field', key: 'sizefield' },
           e('label', { className: 'field-label' }, 'Party size'),
           sizeMode === 'quick'
@@ -774,6 +761,19 @@ function MiniGemWaitlist() {
                 }, '‹ Choose 1–6 instead'),
                 e('div', { className: 'size-hint' }, 'Max 20 per group. Bigger group? Submit it as two separate entries on the list.')
               )
+        )
+      );
+      joinChildren.push(
+        e('div', { className: 'field', key: 'namefield' },
+          e('label', { className: 'field-label' }, 'Name'),
+          e('input', {
+            className: 'underline-input',
+            placeholder: "e.g. Kenny's Friends",
+            value: joinName,
+            onChange: function (ev) { setJoinName(ev.target.value); setJoinedId(null); },
+            onKeyDown: function (ev) { if (ev.key === 'Enter') handleJoin(); },
+            maxLength: 40
+          })
         )
       );
       joinChildren.push(
