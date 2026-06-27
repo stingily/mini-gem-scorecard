@@ -152,9 +152,9 @@ var CSS = "\
   .queue-remove:hover { color: var(--brick); }\
   .join-error { color: var(--brick); font-size: 0.8rem; margin-bottom: 10px; }\
   .field-label { font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 8px; display: block; }\
-  .underline-input { width: 100%; border: 1.5px solid var(--pill-border); border-radius: 14px; background: var(--pill); font-family: 'Inter', sans-serif; font-size: 1rem; padding: 13px 14px; color: var(--ink); }\
+  .underline-input { width: 100%; border: 1.5px solid var(--brick); border-radius: 14px; background: #fff; font-family: 'Inter', sans-serif; font-size: 1rem; padding: 13px 14px; color: var(--ink); }\
   .underline-input::placeholder { color: #B3ADA3; }\
-  .underline-input:focus { border-color: var(--brick); background: #fff; outline: none; }\
+  .underline-input:focus { border-color: var(--brick-dark); outline: none; }\
   .field { margin-bottom: 18px; }\
   .size-hint { font-size: 0.74rem; color: var(--muted); margin-top: 8px; }\
   .join-section { background: var(--pill); border-top: 3px solid var(--brick); scroll-margin-top: 14px; }\
@@ -380,6 +380,19 @@ function MiniGemWaitlist() {
     }
   }
 
+  // Finish & call next: the common case after finishing is calling the next
+  // group anyway, so do both in one tap. callNext() already overwrites
+  // nowPlaying entirely, so it doubles as the "clear" step when someone's
+  // waiting. If nobody's waiting, just clear like a plain finish would.
+  function finishAndCallNext() {
+    setConfirmSkip(false);
+    if (queue.length > 0) {
+      callNext();
+    } else {
+      finishNow();
+    }
+  }
+
   // Didn't show: send them back into the queue a few spots behind whoever's
   // currently waiting, instead of removing them. We pick a landing spot by
   // computing an addedAt timestamp that sorts them in just behind the next
@@ -534,7 +547,7 @@ function MiniGemWaitlist() {
       var teeActionsChildren = [];
       if (isStaff) {
         var teeActionButtons = [
-          e('button', { className: 'btn btn-flag', onClick: finishNow, key: 'finish' }, 'Finish & clear')
+          e('button', { className: 'btn btn-flag', onClick: finishAndCallNext, key: 'finish' }, 'Finish & call next')
         ];
         if (confirmSkip) {
           teeActionButtons.push(
@@ -652,7 +665,7 @@ function MiniGemWaitlist() {
       ),
       e(React.Fragment, { key: 'list' }, listInner)
     ];
-    if (isStaff && queue.length > 0) {
+    if (isStaff && queue.length > 0 && !nowPlaying) {
       listSectionChildren.push(
         e('div', { style: { marginTop: 12 }, key: 'callnext' },
           e('button', { className: 'btn btn-outline', onClick: callNext }, 'Call next')
