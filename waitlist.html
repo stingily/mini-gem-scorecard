@@ -106,7 +106,10 @@ var CSS = "\
   .sheet { width: 100%; max-width: 560px; background: var(--bg); min-height: 100vh; }\
   .topbar { height: 5px; background: var(--brick); }\
   .header { padding: 20px 22px 18px; }\
+  .header-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\
   .brand-row { display: flex; align-items: center; gap: 12px; }\
+  .jump-join-btn { background: var(--brick); color: #fff; border: none; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 8px 14px; border-radius: 12px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }\
+  .jump-join-btn:hover { background: var(--brick-dark); }\
   .logo-img { height: 52px; width: auto; display: block; flex-shrink: 0; }\
   .wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 0.03em; line-height: 1; color: var(--ink); }\
   .subtitle { font-size: 0.78rem; color: var(--muted); margin-top: 4px; letter-spacing: 0.01em; }\
@@ -154,6 +157,8 @@ var CSS = "\
   .underline-input:focus { border-color: var(--brick); background: #fff; outline: none; }\
   .field { margin-bottom: 18px; }\
   .size-hint { font-size: 0.74rem; color: var(--muted); margin-top: 8px; }\
+  .join-section { background: var(--pill); border-top: 3px solid var(--brick); scroll-margin-top: 14px; }\
+  .join-section .section-title { color: var(--brick); }\
   .wait-hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 16px; }\
   .join-closed { background: var(--pill); border-radius: 14px; padding: 16px; font-size: 0.88rem; color: var(--ink); line-height: 1.5; }\
   .stepper { display: flex; align-items: center; gap: 16px; }\
@@ -449,6 +454,13 @@ function MiniGemWaitlist() {
     }
   }
 
+  function scrollToJoin() {
+    var el = document.getElementById("join-section");
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   function submitPin() {
     if (pinValue === STAFF_PIN) {
       setIsStaff(true);
@@ -484,12 +496,17 @@ function MiniGemWaitlist() {
 
   sheetChildren.push(
     e('div', { className: 'header', key: 'header' },
-      e('div', { className: 'brand-row' },
-        e('img', { src: LOGO_URL, alt: 'Mini Gem', className: 'logo-img' }),
-        e('div', null,
-          e('div', { className: 'wordmark' }, 'WAITLIST'),
-          e('div', { className: 'subtitle' }, 'Gem Lake Hills · White Bear Lake, MN')
-        )
+      e('div', { className: 'header-row' },
+        e('div', { className: 'brand-row' },
+          e('img', { src: LOGO_URL, alt: 'Mini Gem', className: 'logo-img' }),
+          e('div', null,
+            e('div', { className: 'wordmark' }, 'WAITLIST'),
+            e('div', { className: 'subtitle' }, 'Gem Lake Hills · White Bear Lake, MN')
+          )
+        ),
+        (joinEnabled || isStaff)
+          ? e('button', { className: 'jump-join-btn', onClick: scrollToJoin }, 'Join ↓')
+          : null
       )
     )
   );
@@ -721,13 +738,17 @@ function MiniGemWaitlist() {
         e('button', { className: 'btn btn-flag', onClick: handleJoin, key: 'joinbtn' }, 'Join the list →')
       );
       if (joinedId && queue.some(function (p) { return p.id === joinedId; })) {
-        var spot = queue.findIndex(function (p) { return p.id === joinedId; }) + 1;
+        var myIndex = queue.findIndex(function (p) { return p.id === joinedId; });
+        var myEst = estimateFor(myIndex);
+        var confirmText = myEst <= 0
+          ? "You're on the list — no wait, head on up!"
+          : "You're on the list — about " + myEst + " " + (myEst === 1 ? "minute" : "minutes") + " wait.";
         joinChildren.push(
-          e('div', { className: 'join-confirm', key: 'confirm' }, "You're on the list — spot #" + spot + ".")
+          e('div', { className: 'join-confirm', key: 'confirm' }, confirmText)
         );
       }
     }
-    sheetChildren.push(e('div', { className: 'section', key: 'joinsection' }, joinChildren));
+    sheetChildren.push(e('div', { className: 'section join-section', id: 'join-section', key: 'joinsection' }, joinChildren));
 
     // Staff section
     if (isStaff) {
