@@ -155,6 +155,7 @@ var CSS = "\
   .field { margin-bottom: 18px; }\
   .size-hint { font-size: 0.74rem; color: var(--muted); margin-top: 8px; }\
   .wait-hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 16px; }\
+  .join-closed { background: var(--pill); border-radius: 14px; padding: 16px; font-size: 0.88rem; color: var(--ink); line-height: 1.5; }\
   .stepper { display: flex; align-items: center; gap: 16px; }\
   .stepper button { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--pill); color: var(--ink); font-size: 1.1rem; font-weight: 700; cursor: pointer; line-height: 1; }\
   .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }\
@@ -227,6 +228,9 @@ function MiniGemWaitlist() {
   var confirmSkipState = useState(false);
   var confirmSkip = confirmSkipState[0], setConfirmSkip = confirmSkipState[1];
 
+  var joinEnabledState = useState(true);
+  var joinEnabled = joinEnabledState[0], setJoinEnabled = joinEnabledState[1];
+
   var mounted = useRef(true);
 
   useEffect(function () {
@@ -244,6 +248,7 @@ function MiniGemWaitlist() {
     var queueRef = db.ref("queue");
     var nowPlayingRef = db.ref("nowPlaying");
     var settingsRef = db.ref("settings/minutesPerGroup");
+    var joinEnabledRef = db.ref("settings/joinEnabled");
     var lastResetRef = db.ref("settings/lastResetDate");
 
     // Whenever the page loads, check whether it's a new calendar day since
@@ -282,6 +287,11 @@ function MiniGemWaitlist() {
       var v = snap.val();
       if (typeof v === "number") setMinutesPerGroup(v);
     }
+    function onJoinEnabled(snap) {
+      if (!mounted.current) return;
+      var v = snap.val();
+      setJoinEnabled(v === false ? false : true);
+    }
     function onErr() {
       if (!mounted.current) return;
       setStorageError("Lost connection to the database. Showing the last known list.");
@@ -291,6 +301,7 @@ function MiniGemWaitlist() {
     queueRef.on("value", onQueue, onErr);
     nowPlayingRef.on("value", onNowPlaying, onErr);
     settingsRef.on("value", onSettings, onErr);
+    joinEnabledRef.on("value", onJoinEnabled, onErr);
 
     return function () {
       mounted.current = false;
@@ -298,6 +309,7 @@ function MiniGemWaitlist() {
       queueRef.off("value", onQueue);
       nowPlayingRef.off("value", onNowPlaying);
       settingsRef.off("value", onSettings);
+      joinEnabledRef.off("value", onJoinEnabled);
     };
   }, []);
 
@@ -424,6 +436,15 @@ function MiniGemWaitlist() {
     if (CONFIGURED && db) {
       db.ref("settings/minutesPerGroup")
         .set(mins)
+        .catch(function () { setStorageError("Couldn't save settings."); });
+    }
+  }
+
+  function persistJoinEnabled(val) {
+    setJoinEnabled(val);
+    if (CONFIGURED && db) {
+      db.ref("settings/joinEnabled")
+        .set(val)
         .catch(function () { setStorageError("Couldn't save settings."); });
     }
   }
@@ -627,67 +648,84 @@ function MiniGemWaitlist() {
     var joinChildren = [
       e('div', { className: 'section-title', key: 'title' }, 'Join the list')
     ];
-    var previewEst = estimateFor(queue.length);
-    var waitHintText = previewEst <= 0
-      ? "No wait right now — come on up."
-      : "Roughly a " + previewEst + " minute wait — grab a drink and enjoy the patio.";
-    joinChildren.push(e('div', { className: 'wait-hint', key: 'waithint' }, waitHintText));
-    if (joinError) {
-      joinChildren.push(e('div', { className: 'join-error', key: 'err' }, joinError));
-    }
-    joinChildren.push(
-      e('div', { className: 'field', key: 'namefield' },
-        e('label', { className: 'field-label' }, 'Name'),
-        e('input', {
-          className: 'underline-input',
-          placeholder: 'e.g. Wang party',
-          value: joinName,
-          onChange: function (ev) { setJoinName(ev.target.value); setJoinedId(null); },
-          onKeyDown: function (ev) { if (ev.key === 'Enter') handleJoin(); },
-          maxLength: 40
-        })
-      )
-    );
-    joinChildren.push(
-      e('div', { className: 'field', key: 'sizefield' },
-        e('label', { className: 'field-label' }, 'Party size'),
-        e('div', { className: 'stepper' },
-          e('button', {
-            onClick: function () { setJoinSize(function (s) { return Math.max(1, s - 1); }); },
-            disabled: joinSize <= 1,
-            'aria-label': 'Decrease party size'
-          }, '−'),
-          e('span', { className: 'count' }, joinSize),
-          e('button', {
-            onClick: function () { setJoinSize(function (s) { return Math.min(20, s + 1); }); },
-            disabled: joinSize >= 20,
-            'aria-label': 'Increase party size'
-          }, '+')
-        ),
-        e('div', { className: 'size-hint' }, 'Max 20 per group. Bigger group? Submit it as two separate entries on the list.')
-      )
-    );
-    joinChildren.push(
-      e('div', { className: 'field', key: 'notefield' },
-        e('label', { className: 'field-label' }, 'Note (optional)'),
-        e('input', {
-          className: 'underline-input',
-          placeholder: 'e.g. on the patio, at the bar',
-          value: joinNote,
-          onChange: function (ev) { setJoinNote(ev.target.value); },
-          maxLength: 80,
-          onKeyDown: function (ev) { if (ev.key === 'Enter') handleJoin(); }
-        })
-      )
-    );
-    joinChildren.push(
-      e('button', { className: 'btn btn-flag', onClick: handleJoin, key: 'joinbtn' }, 'Join the list →')
-    );
-    if (joinedId && queue.some(function (p) { return p.id === joinedId; })) {
-      var spot = queue.findIndex(function (p) { return p.id === joinedId; }) + 1;
+
+    if (!joinEnabled && !isStaff) {
       joinChildren.push(
-        e('div', { className: 'join-confirm', key: 'confirm' }, "You're on the list — spot #" + spot + ".")
+        e('div', { className: 'join-closed', key: 'closed' },
+          "Self sign-up is closed right now — please check in with a staff member to be added to the list."
+        )
       );
+    } else {
+      if (isStaff && !joinEnabled) {
+        joinChildren.push(
+          e('div', { className: 'wait-hint', key: 'staffnote' },
+            "Self sign-up is off for customers right now — use this form to add them yourself."
+          )
+        );
+      } else {
+        var previewEst = estimateFor(queue.length);
+        var waitHintText = previewEst <= 0
+          ? "No wait right now — come on up."
+          : "Roughly a " + previewEst + " minute wait — grab a drink and enjoy the patio.";
+        joinChildren.push(e('div', { className: 'wait-hint', key: 'waithint' }, waitHintText));
+      }
+      if (joinError) {
+        joinChildren.push(e('div', { className: 'join-error', key: 'err' }, joinError));
+      }
+      joinChildren.push(
+        e('div', { className: 'field', key: 'namefield' },
+          e('label', { className: 'field-label' }, 'Name'),
+          e('input', {
+            className: 'underline-input',
+            placeholder: 'e.g. Wang party',
+            value: joinName,
+            onChange: function (ev) { setJoinName(ev.target.value); setJoinedId(null); },
+            onKeyDown: function (ev) { if (ev.key === 'Enter') handleJoin(); },
+            maxLength: 40
+          })
+        )
+      );
+      joinChildren.push(
+        e('div', { className: 'field', key: 'sizefield' },
+          e('label', { className: 'field-label' }, 'Party size'),
+          e('div', { className: 'stepper' },
+            e('button', {
+              onClick: function () { setJoinSize(function (s) { return Math.max(1, s - 1); }); },
+              disabled: joinSize <= 1,
+              'aria-label': 'Decrease party size'
+            }, '−'),
+            e('span', { className: 'count' }, joinSize),
+            e('button', {
+              onClick: function () { setJoinSize(function (s) { return Math.min(20, s + 1); }); },
+              disabled: joinSize >= 20,
+              'aria-label': 'Increase party size'
+            }, '+')
+          ),
+          e('div', { className: 'size-hint' }, 'Max 20 per group. Bigger group? Submit it as two separate entries on the list.')
+        )
+      );
+      joinChildren.push(
+        e('div', { className: 'field', key: 'notefield' },
+          e('label', { className: 'field-label' }, 'Note (optional)'),
+          e('input', {
+            className: 'underline-input',
+            placeholder: 'e.g. on the patio, at the bar',
+            value: joinNote,
+            onChange: function (ev) { setJoinNote(ev.target.value); },
+            maxLength: 80,
+            onKeyDown: function (ev) { if (ev.key === 'Enter') handleJoin(); }
+          })
+        )
+      );
+      joinChildren.push(
+        e('button', { className: 'btn btn-flag', onClick: handleJoin, key: 'joinbtn' }, 'Join the list →')
+      );
+      if (joinedId && queue.some(function (p) { return p.id === joinedId; })) {
+        var spot = queue.findIndex(function (p) { return p.id === joinedId; }) + 1;
+        joinChildren.push(
+          e('div', { className: 'join-confirm', key: 'confirm' }, "You're on the list — spot #" + spot + ".")
+        );
+      }
     }
     sheetChildren.push(e('div', { className: 'section', key: 'joinsection' }, joinChildren));
 
@@ -702,6 +740,13 @@ function MiniGemWaitlist() {
             )
           ),
           e('div', { className: 'staff-panel' },
+            e('div', { className: 'row' },
+              e('span', { className: 'staff-label' }, 'Customer self sign-up'),
+              e('button', {
+                className: 'btn btn-outline',
+                onClick: function () { persistJoinEnabled(!joinEnabled); }
+              }, joinEnabled ? 'Turn off' : 'Turn on')
+            ),
             e('div', { className: 'row' },
               e('span', { className: 'staff-label' }, 'Minutes per 6 players'),
               e('div', { className: 'stepper' },
