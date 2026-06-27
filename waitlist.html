@@ -22,7 +22,7 @@
 /* ============================================================
    1) PASTE YOUR FIREBASE CONFIG BELOW
    ============================================================ */
-const firebaseConfig = {
+var firebaseConfig = {
   apiKey: "AIzaSyDshoGBi2po_EjcvTFqSqqvFstTSzumObE",
   authDomain: "mini-gem-waitlist.firebaseapp.com",
   databaseURL: "https://mini-gem-waitlist-default-rtdb.firebaseio.com",
@@ -120,6 +120,7 @@ var CSS = "\
   .section-title { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label); margin: 0 0 14px; display: flex; justify-content: space-between; align-items: baseline; }\
   .section-title .meta { font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 0.74rem; color: var(--muted); }\
   .tee-card { background: var(--score-blue); border-radius: 18px; padding: 20px 22px; color: var(--ink); }\
+  .tee-card-empty { padding: 4px 2px; }\
   .tee-empty { font-size: 0.92rem; color: var(--muted); }\
   .tee-clock { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.6rem, 10vw, 3.4rem); color: var(--ink); line-height: 1; letter-spacing: 0.03em; }\
   .tee-name { margin-top: 4px; font-size: 1.05rem; font-weight: 700; }\
@@ -139,7 +140,6 @@ var CSS = "\
   .skip-tag { font-size: 0.64rem; color: var(--warn); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-left: 6px; }\
   .queue-row { display: grid; grid-template-columns: 34px 1fr auto auto; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--divider); }\
   .queue-row:last-child { border-bottom: none; }\
-  .queue-row.mine { background: rgba(184,67,46,0.07); border-radius: 12px; }\
   .queue-num { font-family: 'Bebas Neue', sans-serif; color: var(--ink); font-size: 1.3rem; }\
   .queue-name { font-weight: 700; font-size: 0.92rem; }\
   .queue-name .you-tag { font-size: 0.65rem; color: var(--brick); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-left: 6px; }\
@@ -555,7 +555,7 @@ function MiniGemWaitlist() {
     sheetChildren.push(
       e('div', { className: 'section', key: 'teesection' },
         e('div', { className: 'section-title' }, 'On the tee'),
-        e('div', { className: 'tee-card' }, teeInner)
+        e('div', { className: nowPlaying ? 'tee-card' : 'tee-card-empty' }, teeInner)
       )
     );
 
@@ -568,7 +568,8 @@ function MiniGemWaitlist() {
       var restRows = [];
       queue.forEach(function (p, i) {
         var est = estimateFor(i);
-        var row = e('div', { className: 'queue-row' + (p.id === joinedId ? ' mine' : ''), key: p.id },
+        var inPracticeGreen = i < 3;
+        var row = e('div', { className: 'queue-row', key: p.id },
           e('div', { className: 'queue-num' }, String(i + 1).padStart(2, '0')),
           e('div', null,
             e('div', { className: 'queue-name' },
@@ -581,7 +582,7 @@ function MiniGemWaitlist() {
               (p.note ? ' · ' + p.note : '') + ' · added ' + timeAgo(p.addedAt, Date.now())
             )
           ),
-          e('div', { className: 'queue-wait' }, est <= 0 ? 'Up next' : '~' + est + ' min'),
+          e('div', { className: 'queue-wait' }, inPracticeGreen ? null : (est <= 0 ? 'Up next' : '~' + est + ' min')),
           isStaff
             ? e('button', {
                 className: 'queue-remove',
@@ -590,7 +591,7 @@ function MiniGemWaitlist() {
               }, '✕')
             : e('span', null)
         );
-        if (i < 3) { practiceRows.push(row); } else { restRows.push(row); }
+        if (inPracticeGreen) { practiceRows.push(row); } else { restRows.push(row); }
       });
 
       var listGroups = [
