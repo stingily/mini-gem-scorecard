@@ -99,6 +99,7 @@ var CSS = "\
     --brick-dark: #9C3624;\
     --score-blue: #E9EEFB;\
     --divider: #ECEAE6;\
+    --warn: #A6790F;\
   }\
   * { box-sizing: border-box; }\
   .shell { font-family: 'Inter', sans-serif; color: var(--ink); background: var(--bg); min-height: 100%; display: flex; justify-content: center; padding: 0; }\
@@ -133,6 +134,9 @@ var CSS = "\
   .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--pill-border); }\
   .btn-outline { background: transparent; color: var(--brick); border: 1.5px solid var(--brick); }\
   .queue-empty { font-size: 0.9rem; color: var(--muted); padding: 6px 2px 2px; }\
+  .practice-green-group { background: var(--score-blue); border-radius: 14px; padding: 0 10px; margin-bottom: 6px; }\
+  .practice-green-label { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brick); padding: 10px 2px 4px; }\
+  .skip-tag { font-size: 0.64rem; color: var(--warn); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-left: 6px; }\
   .queue-row { display: grid; grid-template-columns: 34px 1fr auto auto; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--divider); }\
   .queue-row:last-child { border-bottom: none; }\
   .queue-row.mine { background: rgba(184,67,46,0.07); border-radius: 12px; }\
@@ -218,6 +222,9 @@ function MiniGemWaitlist() {
 
   var confirmResetState = useState(false);
   var confirmReset = confirmResetState[0], setConfirmReset = confirmResetState[1];
+
+  var confirmSkipState = useState(false);
+  var confirmSkip = confirmSkipState[0], setConfirmSkip = confirmSkipState[1];
 
   var mounted = useRef(true);
 
@@ -347,9 +354,47 @@ function MiniGemWaitlist() {
   }
 
   function finishNow() {
+    setConfirmSkip(false);
     if (CONFIGURED && db) {
       db.ref("nowPlaying").remove().catch(function () { setStorageError("Couldn't clear the tee status."); });
     } else {
+      setNowPlaying(null);
+    }
+  }
+
+  // Didn't show: send them back into the queue a few spots behind whoever's
+  // currently waiting, instead of removing them. We pick a landing spot by
+  // computing an addedAt timestamp that sorts them in just behind the next
+  // 2-3 groups (or to the very back if fewer than 3 are waiting).
+  function skipNoShow() {
+    setConfirmSkip(false);
+    if (!nowPlaying) return;
+    var targetIndex = Math.min(3, queue.length);
+    var newAddedAt;
+    if (targetIndex >= queue.length) {
+      newAddedAt = Date.now();
+    } else {
+      var before = targetIndex > 0 ? queue[targetIndex - 1].addedAt : 0;
+      var after = queue[targetIndex].addedAt;
+      newAddedAt = (before + after) / 2;
+    }
+    var payload = {
+      name: nowPlaying.name,
+      size: nowPlaying.size,
+      note: nowPlaying.note || "",
+      addedAt: newAddedAt,
+      skipped: true
+    };
+    if (CONFIGURED && db) {
+      db.ref("queue").push(payload).catch(function () { setStorageError("Couldn't update the list."); });
+      db.ref("nowPlaying").remove().catch(function () { setStorageError("Couldn't clear the tee status."); });
+    } else {
+      var localEntry = Object.assign({ id: uid() }, payload);
+      setQueue(function (q) {
+        var copy = q.slice();
+        copy.splice(targetIndex, 0, localEntry);
+        return copy;
+      });
       setNowPlaying(null);
     }
   }
@@ -449,10 +494,28 @@ function MiniGemWaitlist() {
     if (nowPlaying) {
       var teeActionsChildren = [];
       if (isStaff) {
+        var teeActionButtons = [
+          e('button', { className: 'btn btn-flag', onClick: finishNow, key: 'finish' }, 'Finish & clear')
+        ];
+        if (confirmSkip) {
+          teeActionButtons.push(
+            e('div', { className: 'reset-confirm', key: 'skipconfirm' },
+              e('span', null, 'Sure?'),
+              e('button', { className: 'btn btn-outline', onClick: skipNoShow }, 'Yes, skip'),
+              e('button', { className: 'btn btn-ghost', onClick: function () { setConfirmSkip(false); } }, 'Cancel')
+            )
+          );
+        } else {
+          teeActionButtons.push(
+            e('button', {
+              className: 'btn btn-outline',
+              onClick: function () { setConfirmSkip(true); },
+              key: 'skipbtn'
+            }, "Didn't show")
+          );
+        }
         teeActionsChildren.push(
-          e('div', { className: 'tee-actions', key: 'teeactions' },
-            e('button', { className: 'btn btn-flag', onClick: finishNow }, 'Finish & clear')
-          )
+          e('div', { className: 'tee-actions', key: 'teeactions' }, teeActionButtons)
         );
       }
       teeInner = [
@@ -501,14 +564,17 @@ function MiniGemWaitlist() {
     if (queue.length === 0) {
       listInner = e('div', { className: 'queue-empty' }, "The tee sheet's open — be the first to join.");
     } else {
-      listInner = e('div', null, queue.map(function (p, i) {
+      var practiceRows = [];
+      var restRows = [];
+      queue.forEach(function (p, i) {
         var est = estimateFor(i);
-        return e('div', { className: 'queue-row' + (p.id === joinedId ? ' mine' : ''), key: p.id },
+        var row = e('div', { className: 'queue-row' + (p.id === joinedId ? ' mine' : ''), key: p.id },
           e('div', { className: 'queue-num' }, String(i + 1).padStart(2, '0')),
           e('div', null,
             e('div', { className: 'queue-name' },
               p.name,
-              p.id === joinedId ? e('span', { className: 'you-tag' }, 'You') : null
+              p.id === joinedId ? e('span', { className: 'you-tag' }, 'You') : null,
+              p.skipped ? e('span', { className: 'skip-tag' }, 'Missed call') : null
             ),
             e('div', { className: 'queue-meta' },
               p.size + ' ' + (p.size === 1 ? 'player' : 'players') +
@@ -524,7 +590,19 @@ function MiniGemWaitlist() {
               }, '✕')
             : e('span', null)
         );
-      }));
+        if (i < 3) { practiceRows.push(row); } else { restRows.push(row); }
+      });
+
+      var listGroups = [
+        e('div', { className: 'practice-green-group', key: 'practicegroup' },
+          e('div', { className: 'practice-green-label' }, 'On the practice green'),
+          practiceRows
+        )
+      ];
+      if (restRows.length > 0) {
+        listGroups.push(e('div', { key: 'rest' }, restRows));
+      }
+      listInner = e('div', null, listGroups);
     }
 
     var listSectionChildren = [
