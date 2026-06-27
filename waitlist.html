@@ -157,6 +157,11 @@ var CSS = "\
   .underline-input:focus { border-color: var(--brick-dark); outline: none; }\
   .field { margin-bottom: 18px; }\
   .size-hint { font-size: 0.74rem; color: var(--muted); margin-top: 8px; }\
+  .size-grid { display: flex; flex-wrap: wrap; gap: 8px; }\
+  .size-chip { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--pill-border); background: var(--pill); color: var(--ink); font-family: 'Inter', sans-serif; font-weight: 700; font-size: 0.95rem; cursor: pointer; }\
+  .size-chip.selected { background: var(--brick); border-color: var(--brick); color: #fff; }\
+  .size-chip-more { width: auto; padding: 0 14px; border-radius: 21px; font-size: 0.8rem; }\
+  .size-back-link { background: none; border: none; color: var(--brick); font-weight: 600; font-size: 0.78rem; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 10px; display: block; }\
   .join-section { background: var(--pill); border-top: 3px solid var(--brick); scroll-margin-top: 14px; }\
   .join-section .section-title { color: var(--brick); }\
   .wait-hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 16px; }\
@@ -203,8 +208,11 @@ function MiniGemWaitlist() {
   var joinNameState = useState("");
   var joinName = joinNameState[0], setJoinName = joinNameState[1];
 
-  var joinSizeState = useState(4);
+  var joinSizeState = useState(null);
   var joinSize = joinSizeState[0], setJoinSize = joinSizeState[1];
+
+  var sizeModeState = useState("quick");
+  var sizeMode = sizeModeState[0], setSizeMode = sizeModeState[1];
 
   var joinNoteState = useState("");
   var joinNote = joinNoteState[0], setJoinNote = joinNoteState[1];
@@ -328,6 +336,10 @@ function MiniGemWaitlist() {
       setJoinError("Keep the name under 40 characters.");
       return;
     }
+    if (!joinSize) {
+      setJoinError("Select a party size.");
+      return;
+    }
     setJoinError("");
     var note = joinNote.trim().slice(0, 80);
 
@@ -350,7 +362,8 @@ function MiniGemWaitlist() {
     }
     setJoinName("");
     setJoinNote("");
-    setJoinSize(4);
+    setJoinSize(null);
+    setSizeMode("quick");
   }
 
   function callNext() {
@@ -718,20 +731,49 @@ function MiniGemWaitlist() {
       joinChildren.push(
         e('div', { className: 'field', key: 'sizefield' },
           e('label', { className: 'field-label' }, 'Party size'),
-          e('div', { className: 'stepper' },
-            e('button', {
-              onClick: function () { setJoinSize(function (s) { return Math.max(1, s - 1); }); },
-              disabled: joinSize <= 1,
-              'aria-label': 'Decrease party size'
-            }, '−'),
-            e('span', { className: 'count' }, joinSize),
-            e('button', {
-              onClick: function () { setJoinSize(function (s) { return Math.min(20, s + 1); }); },
-              disabled: joinSize >= 20,
-              'aria-label': 'Increase party size'
-            }, '+')
-          ),
-          e('div', { className: 'size-hint' }, 'Max 20 per group. Bigger group? Submit it as two separate entries on the list.')
+          sizeMode === 'quick'
+            ? e('div', { key: 'quickpick' },
+                e('div', { className: 'size-grid' },
+                  [1, 2, 3, 4, 5, 6].map(function (n) {
+                    return e('button', {
+                      key: 'size' + n,
+                      className: 'size-chip' + (joinSize === n ? ' selected' : ''),
+                      'aria-pressed': joinSize === n,
+                      onClick: function () { setJoinSize(n); }
+                    }, String(n));
+                  }).concat([
+                    e('button', {
+                      key: 'size7plus',
+                      className: 'size-chip size-chip-more',
+                      onClick: function () {
+                        setSizeMode('extended');
+                        setJoinSize(function (s) { return s && s > 6 ? s : 7; });
+                      }
+                    }, '7+')
+                  ])
+                ),
+                e('div', { className: 'size-hint' }, 'Max 20 per group. Bigger group? Submit it as two separate entries on the list.')
+              )
+            : e('div', { key: 'extended' },
+                e('div', { className: 'stepper' },
+                  e('button', {
+                    onClick: function () { setJoinSize(function (s) { return Math.max(7, (s || 7) - 1); }); },
+                    disabled: joinSize <= 7,
+                    'aria-label': 'Decrease party size'
+                  }, '−'),
+                  e('span', { className: 'count' }, joinSize || 7),
+                  e('button', {
+                    onClick: function () { setJoinSize(function (s) { return Math.min(20, (s || 7) + 1); }); },
+                    disabled: joinSize >= 20,
+                    'aria-label': 'Increase party size'
+                  }, '+')
+                ),
+                e('button', {
+                  className: 'size-back-link',
+                  onClick: function () { setSizeMode('quick'); setJoinSize(null); }
+                }, '‹ Choose 1–6 instead'),
+                e('div', { className: 'size-hint' }, 'Max 20 per group. Bigger group? Submit it as two separate entries on the list.')
+              )
         )
       );
       joinChildren.push(
