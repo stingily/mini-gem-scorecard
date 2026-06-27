@@ -154,6 +154,7 @@ var CSS = "\
   .underline-input:focus { border-color: var(--brick); background: #fff; outline: none; }\
   .field { margin-bottom: 18px; }\
   .size-hint { font-size: 0.74rem; color: var(--muted); margin-top: 8px; }\
+  .wait-hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 16px; }\
   .stepper { display: flex; align-items: center; gap: 16px; }\
   .stepper button { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--pill); color: var(--ink); font-size: 1.1rem; font-weight: 700; cursor: pointer; line-height: 1; }\
   .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }\
@@ -626,6 +627,11 @@ function MiniGemWaitlist() {
     var joinChildren = [
       e('div', { className: 'section-title', key: 'title' }, 'Join the list')
     ];
+    var previewEst = estimateFor(queue.length);
+    var waitHintText = previewEst <= 0
+      ? "No wait right now — come on up."
+      : "Roughly a " + previewEst + " minute wait — grab a drink and enjoy the patio.";
+    joinChildren.push(e('div', { className: 'wait-hint', key: 'waithint' }, waitHintText));
     if (joinError) {
       joinChildren.push(e('div', { className: 'join-error', key: 'err' }, joinError));
     }
