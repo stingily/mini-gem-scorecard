@@ -166,6 +166,7 @@ var CSS = "\
   .join-section .section-title { color: var(--brick); }\
   .wait-hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 16px; }\
   .join-closed { background: var(--pill); border-radius: 14px; padding: 16px; font-size: 0.88rem; color: var(--ink); line-height: 1.5; }\
+  .join-instruction { background: var(--pill); border-radius: 14px; padding: 14px 16px; font-size: 0.85rem; color: var(--ink); line-height: 1.5; margin-bottom: 14px; }\
   .stepper { display: flex; align-items: center; gap: 16px; }\
   .stepper button { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--pill); color: var(--ink); font-size: 1.1rem; font-weight: 700; cursor: pointer; line-height: 1; }\
   .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }\
@@ -699,6 +700,11 @@ function MiniGemWaitlist() {
         )
       );
     } else {
+      joinChildren.push(
+        e('div', { className: 'join-instruction', key: 'payinstruction' },
+          "Please only add yourself to the list after you've paid at Gem Lake Hills."
+        )
+      );
       if (isStaff && !joinEnabled) {
         joinChildren.push(
           e('div', { className: 'wait-hint', key: 'staffnote' },
