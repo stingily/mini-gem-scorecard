@@ -108,7 +108,7 @@ var CSS = "\
   .header { padding: 20px 22px 18px; }\
   .header-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\
   .brand-row { display: flex; align-items: center; gap: 12px; }\
-  .jump-join-btn { background: var(--brick); color: #fff; border: none; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 8px 14px; border-radius: 12px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }\
+  .jump-join-btn { background: var(--brick); color: #fff; border: none; font-size: 0.88rem; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; padding: 13px 20px; border-radius: 14px; cursor: pointer; white-space: nowrap; flex-shrink: 0; line-height: 1; }\
   .jump-join-btn:hover { background: var(--brick-dark); }\
   .logo-img { height: 52px; width: auto; display: block; flex-shrink: 0; }\
   .wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 0.03em; line-height: 1; color: var(--ink); }\
@@ -530,7 +530,7 @@ function MiniGemWaitlist() {
           )
         ),
         (joinEnabled || isStaff)
-          ? e('button', { className: 'jump-join-btn', onClick: scrollToJoin }, 'Join ↓')
+          ? e('button', { className: 'jump-join-btn', onClick: scrollToJoin }, 'Join the list →')
           : null
       )
     )
