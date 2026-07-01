@@ -530,7 +530,7 @@ function MiniGemWaitlist() {
           )
         ),
         (joinEnabled || isStaff)
-          ? e('button', { className: 'jump-join-btn', onClick: scrollToJoin }, 'Join the list →')
+          ? e('button', { className: 'jump-join-btn', onClick: scrollToJoin }, 'Join the Wait List →')
           : null
       )
     )
@@ -616,12 +616,14 @@ function MiniGemWaitlist() {
       }
     }
 
-    sheetChildren.push(
-      e('div', { className: 'section', key: 'teesection' },
-        e('div', { className: 'section-title' }, 'On the tee'),
-        e('div', { className: nowPlaying ? 'tee-card' : 'tee-card-empty' }, teeInner)
-      )
-    );
+    if (nowPlaying || queue.length > 0) {
+      sheetChildren.push(
+        e('div', { className: 'section', key: 'teesection' },
+          e('div', { className: 'section-title' }, 'On the tee'),
+          e('div', { className: nowPlaying ? 'tee-card' : 'tee-card-empty' }, teeInner)
+        )
+      );
+    }
 
     // The list
     var listInner;
@@ -672,7 +674,7 @@ function MiniGemWaitlist() {
 
     var listSectionChildren = [
       e('div', { className: 'section-title', key: 'title' },
-        'The list',
+        'Wait List',
         e('span', { className: 'meta' }, '~' + minutesPerGroup + ' min per 6 players')
       ),
       e(React.Fragment, { key: 'list' }, listInner)
@@ -688,7 +690,7 @@ function MiniGemWaitlist() {
 
     // Join the list
     var joinChildren = [
-      e('div', { className: 'section-title', key: 'title' }, 'Join the list')
+      e('div', { className: 'section-title', key: 'title' }, 'Join the Wait List')
     ];
 
     if (!joinEnabled && !isStaff) {
@@ -794,7 +796,7 @@ function MiniGemWaitlist() {
         )
       );
       joinChildren.push(
-        e('button', { className: 'btn btn-flag', onClick: handleJoin, key: 'joinbtn' }, 'Join the list →')
+        e('button', { className: 'btn btn-flag', onClick: handleJoin, key: 'joinbtn' }, 'Join the Wait List →')
       );
       if (joinedId && queue.some(function (p) { return p.id === joinedId; })) {
         var myIndex = queue.findIndex(function (p) { return p.id === joinedId; });
